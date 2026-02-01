@@ -7,7 +7,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Adatbázis kapcsolat beállítása (A docker-compose.yml adatai alapján)
+// Adatbázis kapcsolat
 const pool = new Pool({
   user: 'user',
   host: 'localhost',
@@ -16,22 +16,123 @@ const pool = new Pool({
   port: 5432,
 });
 
-// Teszt útvonal: Ellenőrizzük, hogy él-e a kapcsolat
+// --- ADATBÁZIS SÉMA LÉTREHOZÁSA ---
+const initDb = async () => {
+  const queryText = `
+    CREATE TABLE IF NOT EXISTS vehicles (
+      id SERIAL PRIMARY KEY,
+      license_plate VARCHAR(20) UNIQUE NOT NULL,
+      brand VARCHAR(50) NOT NULL,
+      model VARCHAR(50) NOT NULL,
+      year_of_manufacture INTEGER,
+      vin VARCHAR(17) UNIQUE,
+      fuel_type VARCHAR(20),
+      transmission VARCHAR(20),
+      engine_capacity INTEGER,
+      current_km INTEGER DEFAULT 0,
+      status VARCHAR(30) DEFAULT 'available',
+      technical_exam_until DATE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS sticker_types (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(50) UNIQUE NOT NULL,
+      price_category VARCHAR(10)
+    );
+
+    CREATE TABLE IF NOT EXISTS vehicle_stickers (
+      id SERIAL PRIMARY KEY,
+      vehicle_id INTEGER REFERENCES vehicles(id) ON DELETE CASCADE,
+      sticker_type_id INTEGER REFERENCES sticker_types(id),
+      valid_until DATE NOT NULL,
+      issued_at DATE DEFAULT CURRENT_DATE
+    );
+  `;
+  try {
+    await pool.query(queryText);
+    console.log("✅ Profi, normalizált séma létrehozva!");
+  } catch (err) {
+    console.error("❌ Hiba az inicializáláskor:", err);
+  }
+};
+
+initDb();
+
+const seedDb = async () => {
+  try {
+    // 1. Matrica típusok felvétele (ha még nincsenek)
+    await pool.query(`
+      INSERT INTO sticker_types (name, price_category) 
+      VALUES ('Pest megyei', 'D1'), ('Országos éves', 'D1'), ('Hajdú megyei', 'D1')
+      ON CONFLICT (name) DO NOTHING;
+    `);
+
+    // 2. Egy teszt autó felvétele
+    const car = await pool.query(`
+      INSERT INTO vehicles (license_plate, brand, model, year_of_manufacture, engine_capacity, fuel_type)
+      VALUES ('ABC-123', 'Toyota', 'Corolla', 2022, 1798, 'Hybrid')
+      ON CONFLICT (license_plate) DO NOTHING
+      RETURNING id;
+    `);
+
+    if (car.rows.length > 0) {
+      // 3. Matrica hozzárendelése az autóhoz (érvényesség: 2027-01-31)
+      await pool.query(`
+        INSERT INTO vehicle_stickers (vehicle_id, sticker_type_id, valid_until)
+        VALUES ($1, 1, '2027-01-31');
+      `, [car.rows[0].id]);
+      
+      console.log("🌱 Tesztadatok sikeresen elültetve!");
+    }
+  } catch (err) {
+    console.error("❌ Hiba az adatok feltöltésekor:", err);
+  }
+};
+
+// Hívd meg az initDb után
+initDb().then(() => seedDb());
+
+// --- ÚTVONALAK (ROUTES) ---
+
+// Alap teszt
 app.get('/api/test', async (req, res) => {
   try {
     const result = await pool.query('SELECT NOW()');
-    res.json({ 
-      success: true, 
-      message: 'A backend sikeresen csatlakozott az adatbázishoz!', 
-      dbTime: result.rows[0].now 
-    });
+    res.json({ success: true, dbTime: result.rows[0].now });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
+// Összes autó lekérése a matricáikkal együtt
+app.get('/api/vehicles-full', async (req, res) => {
+  const queryText = `
+    SELECT 
+      v.*, 
+      COALESCE(
+        json_agg(
+          json_build_object(
+            'type', st.name, 
+            'valid_until', vs.valid_until
+          )
+        ) FILTER (WHERE st.name IS NOT NULL), '[]'
+      ) AS stickers
+    FROM vehicles v
+    LEFT JOIN vehicle_stickers vs ON v.id = vs.vehicle_id
+    LEFT JOIN sticker_types st ON vs.sticker_type_id = st.id
+    GROUP BY v.id;
+  `;
+
+  try {
+    const result = await pool.query(queryText);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = 5000;
 app.listen(PORT, () => {
-  console.log(`🚀 A szerver pörög a http://localhost:${PORT} címen`);
-  console.log(`Kattints ide a teszthez: http://localhost:5000/api/test`);
+  console.log(`🚀 Szerver fut: http://localhost:${PORT}`);
 });
