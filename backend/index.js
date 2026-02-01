@@ -155,6 +155,39 @@ app.get('/api/vehicles-full', async (req, res) => {
   }
 });
 
+// B OPCIÓ: Lejáró vagy már lejárt matricák lekérése
+app.get('/api/alerts/expiring-stickers', async (req, res) => {
+  // A napok számát a linkből vesszük (?days=30), vagy alapból 30 nap
+  const days = req.query.days || 30; 
+
+  const queryText = `
+    SELECT 
+      v.license_plate, 
+      v.brand, 
+      v.model, 
+      st.name AS sticker_name, 
+      vs.valid_until,
+      vs.valid_until - CURRENT_DATE AS days_left
+    FROM vehicle_stickers vs
+    JOIN vehicles v ON vs.vehicle_id = v.id
+    JOIN sticker_types st ON vs.sticker_type_id = st.id
+    WHERE vs.valid_until <= CURRENT_DATE + CAST($1 AS INTEGER)
+    ORDER BY vs.valid_until ASC;
+  `;
+
+  try {
+    const result = await pool.query(queryText, [days]);
+    res.json({
+      description: `Matricák, amik ${days} napon belül lejárnak vagy már lejártak`,
+      count: result.rows.length,
+      alerts: result.rows
+    });
+  } catch (err) {
+    console.error("Hiba a lekérdezésnél:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Szerver fut: http://localhost:${PORT}`);
