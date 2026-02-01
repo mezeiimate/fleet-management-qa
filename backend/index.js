@@ -57,8 +57,6 @@ const initDb = async () => {
   }
 };
 
-initDb();
-
 const seedDb = async () => {
   try {
     // 1. Matrica típusok felvétele (ha még nincsenek)
@@ -105,9 +103,13 @@ app.get('/api/test', async (req, res) => {
   }
 });
 
-// Összes autó lekérése a matricáikkal együtt
+// Összes autó lekérése a matricáikkal együtt + OKOS SZŰRÉS
 app.get('/api/vehicles-full', async (req, res) => {
-  const queryText = `
+  // 1. Kiszedjük a szűrési feltételeket a linkből
+  const { brand, fuel_type, license_plate } = req.query;
+  
+  // 2. Alap lekérdezés felépítése
+  let queryText = `
     SELECT 
       v.*, 
       COALESCE(
@@ -121,13 +123,34 @@ app.get('/api/vehicles-full', async (req, res) => {
     FROM vehicles v
     LEFT JOIN vehicle_stickers vs ON v.id = vs.vehicle_id
     LEFT JOIN sticker_types st ON vs.sticker_type_id = st.id
-    GROUP BY v.id;
+    WHERE 1=1
   `;
 
+  const values = [];
+  let paramCount = 1;
+
+  // 3. Dinamikusan hozzáadjuk a szűrőket, ha vannak megadva
+  if (brand) {
+    queryText += ` AND v.brand ILIKE $${paramCount++}`;
+    values.push(`%${brand}%`);
+  }
+  if (fuel_type) {
+    queryText += ` AND v.fuel_type ILIKE $${paramCount++}`;
+    values.push(`%${fuel_type}%`);
+  }
+  if (license_plate) {
+    queryText += ` AND v.license_plate ILIKE $${paramCount++}`;
+    values.push(`%${license_plate}%`);
+  }
+
+  // 4. Csoportosítás a végére
+  queryText += ` GROUP BY v.id`;
+
   try {
-    const result = await pool.query(queryText);
+    const result = await pool.query(queryText, values);
     res.json(result.rows);
   } catch (err) {
+    console.error("Szűrési hiba:", err);
     res.status(500).json({ error: err.message });
   }
 });
