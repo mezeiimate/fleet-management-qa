@@ -1,194 +1,111 @@
 const express = require('express');
-const { Pool } = require('pg');
+const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
-require('dotenv').config();
 
 const app = express();
+const PORT = 5000;
+
 app.use(cors());
 app.use(express.json());
 
-// Adatbázis kapcsolat
-const pool = new Pool({
-  user: 'user',
-  host: 'localhost',
-  database: 'fleetdb',
-  password: 'password123',
-  port: 5432,
-});
+const db = new sqlite3.Database('./fleet.db');
 
-// --- ADATBÁZIS SÉMA LÉTREHOZÁSA ---
-const initDb = async () => {
-  const queryText = `
-    CREATE TABLE IF NOT EXISTS vehicles (
-      id SERIAL PRIMARY KEY,
-      license_plate VARCHAR(20) UNIQUE NOT NULL,
-      brand VARCHAR(50) NOT NULL,
-      model VARCHAR(50) NOT NULL,
-      year_of_manufacture INTEGER,
-      vin VARCHAR(17) UNIQUE,
-      fuel_type VARCHAR(20),
-      transmission VARCHAR(20),
-      engine_capacity INTEGER,
-      current_km INTEGER DEFAULT 0,
-      status VARCHAR(30) DEFAULT 'available',
-      technical_exam_until DATE,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
+db.serialize(() => {
+    db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, name TEXT, role TEXT)`);
+    db.run(`CREATE TABLE IF NOT EXISTS vehicles (id INTEGER PRIMARY KEY AUTOINCREMENT, license_plate TEXT UNIQUE, brand TEXT, model TEXT, year INTEGER, vin TEXT, fuel_type TEXT, user_id INTEGER, FOREIGN KEY (user_id) REFERENCES users(id))`);
+    db.run(`CREATE TABLE IF NOT EXISTS reports (id INTEGER PRIMARY KEY AUTOINCREMENT, vehicle_id INTEGER, description TEXT, status TEXT DEFAULT 'Pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (vehicle_id) REFERENCES vehicles(id))`);
 
-    CREATE TABLE IF NOT EXISTS sticker_types (
-      id SERIAL PRIMARY KEY,
-      name VARCHAR(50) UNIQUE NOT NULL,
-      price_category VARCHAR(10)
-    );
-
-    CREATE TABLE IF NOT EXISTS vehicle_stickers (
-      id SERIAL PRIMARY KEY,
-      vehicle_id INTEGER REFERENCES vehicles(id) ON DELETE CASCADE,
-      sticker_type_id INTEGER REFERENCES sticker_types(id),
-      valid_until DATE NOT NULL,
-      issued_at DATE DEFAULT CURRENT_DATE
-    );
-  `;
-  try {
-    await pool.query(queryText);
-    console.log("✅ Profi, normalizált séma létrehozva!");
-  } catch (err) {
-    console.error("❌ Hiba az inicializáláskor:", err);
-  }
-};
-
-const seedDb = async () => {
-  try {
-    // 1. Matrica típusok felvétele (ha még nincsenek)
-    await pool.query(`
-      INSERT INTO sticker_types (name, price_category) 
-      VALUES ('Pest megyei', 'D1'), ('Országos éves', 'D1'), ('Hajdú megyei', 'D1')
-      ON CONFLICT (name) DO NOTHING;
-    `);
-
-    // 2. Egy teszt autó felvétele
-    const car = await pool.query(`
-      INSERT INTO vehicles (license_plate, brand, model, year_of_manufacture, engine_capacity, fuel_type)
-      VALUES ('ABC-123', 'Toyota', 'Corolla', 2022, 1798, 'Hybrid')
-      ON CONFLICT (license_plate) DO NOTHING
-      RETURNING id;
-    `);
-
-    if (car.rows.length > 0) {
-      // 3. Matrica hozzárendelése az autóhoz (érvényesség: 2027-01-31)
-      await pool.query(`
-        INSERT INTO vehicle_stickers (vehicle_id, sticker_type_id, valid_until)
-        VALUES ($1, 1, '2027-01-31');
-      `, [car.rows[0].id]);
-      
-      console.log("🌱 Tesztadatok sikeresen elültetve!");
-    }
-  } catch (err) {
-    console.error("❌ Hiba az adatok feltöltésekor:", err);
-  }
-};
-
-// Hívd meg az initDb után
-initDb().then(() => seedDb());
-
-// --- ÚTVONALAK (ROUTES) ---
-
-// Alap teszt
-app.get('/api/test', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT NOW()');
-    res.json({ success: true, dbTime: result.rows[0].now });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Összes autó lekérése a matricáikkal együtt + OKOS SZŰRÉS
-app.get('/api/vehicles-full', async (req, res) => {
-  // 1. Kiszedjük a szűrési feltételeket a linkből
-  const { brand, fuel_type, license_plate } = req.query;
-  
-  // 2. Alap lekérdezés felépítése
-  let queryText = `
-    SELECT 
-      v.*, 
-      COALESCE(
-        json_agg(
-          json_build_object(
-            'type', st.name, 
-            'valid_until', vs.valid_until
-          )
-        ) FILTER (WHERE st.name IS NOT NULL), '[]'
-      ) AS stickers
-    FROM vehicles v
-    LEFT JOIN vehicle_stickers vs ON v.id = vs.vehicle_id
-    LEFT JOIN sticker_types st ON vs.sticker_type_id = st.id
-    WHERE 1=1
-  `;
-
-  const values = [];
-  let paramCount = 1;
-
-  // 3. Dinamikusan hozzáadjuk a szűrőket, ha vannak megadva
-  if (brand) {
-    queryText += ` AND v.brand ILIKE $${paramCount++}`;
-    values.push(`%${brand}%`);
-  }
-  if (fuel_type) {
-    queryText += ` AND v.fuel_type ILIKE $${paramCount++}`;
-    values.push(`%${fuel_type}%`);
-  }
-  if (license_plate) {
-    queryText += ` AND v.license_plate ILIKE $${paramCount++}`;
-    values.push(`%${license_plate}%`);
-  }
-
-  // 4. Csoportosítás a végére
-  queryText += ` GROUP BY v.id`;
-
-  try {
-    const result = await pool.query(queryText, values);
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Szűrési hiba:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// B OPCIÓ: Lejáró vagy már lejárt matricák lekérése
-app.get('/api/alerts/expiring-stickers', async (req, res) => {
-  // A napok számát a linkből vesszük (?days=30), vagy alapból 30 nap
-  const days = req.query.days || 30; 
-
-  const queryText = `
-    SELECT 
-      v.license_plate, 
-      v.brand, 
-      v.model, 
-      st.name AS sticker_name, 
-      vs.valid_until,
-      vs.valid_until - CURRENT_DATE AS days_left
-    FROM vehicle_stickers vs
-    JOIN vehicles v ON vs.vehicle_id = v.id
-    JOIN sticker_types st ON vs.sticker_type_id = st.id
-    WHERE vs.valid_until <= CURRENT_DATE + CAST($1 AS INTEGER)
-    ORDER BY vs.valid_until ASC;
-  `;
-
-  try {
-    const result = await pool.query(queryText, [days]);
-    res.json({
-      description: `Matricák, amik ${days} napon belül lejárnak vagy már lejártak`,
-      count: result.rows.length,
-      alerts: result.rows
+    db.get("SELECT count(*) as count FROM users", (err, row) => {
+        if (row.count === 0) {
+            db.run("INSERT INTO users (username, password, name, role) VALUES ('admin', 'admin', 'Rendszergazda', 'admin')");
+        }
     });
-  } catch (err) {
-    console.error("Hiba a lekérdezésnél:", err);
-    res.status(500).json({ error: err.message });
-  }
 });
 
-const PORT = 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Szerver fut: http://localhost:${PORT}`);
+// LOGIN
+app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
+    db.get("SELECT id, username, name, role FROM users WHERE username = ? AND password = ?", [username, password], (err, user) => {
+        if (user) res.json({ success: true, user });
+        else res.status(401).json({ success: false, message: "Hibás adatok!" });
+    });
 });
+
+// STATISZTIKA
+app.get('/api/stats', (req, res) => {
+    const sql = `SELECT count(*) as totalVehicles, 
+                 sum(case when fuel_type = 'Benzin' then 1 else 0 end) as gasoline,
+                 sum(case when fuel_type = 'Dízel' then 1 else 0 end) as diesel,
+                 sum(case when fuel_type = 'Elektromos' then 1 else 0 end) as electric
+                 FROM vehicles`;
+    db.get(sql, [], (err, row) => res.json(row || {}));
+});
+
+// JÁRMŰVEK - Most már a hibajelentésekkel együtt!
+app.get('/api/vehicles-full', (req, res) => {
+    const sqlVehicles = "SELECT v.*, u.name as driver_name FROM vehicles v LEFT JOIN users u ON v.user_id = u.id";
+    const sqlReports = "SELECT * FROM reports WHERE status = 'Pending'";
+
+    db.all(sqlVehicles, [], (err, vehicles) => {
+        db.all(sqlReports, [], (err, reports) => {
+            const result = vehicles.map(v => ({
+                ...v,
+                reports: reports.filter(r => r.vehicle_id === v.id)
+            }));
+            res.json(result);
+        });
+    });
+});
+
+app.get('/api/my-vehicles/:userId', (req, res) => {
+    db.all("SELECT * FROM vehicles WHERE user_id = ?", [req.params.userId], (err, rows) => res.json(rows));
+});
+
+app.post('/api/vehicles', (req, res) => {
+    const { license_plate, brand, model, year, vin, fuel_type, user_id } = req.body;
+    db.run(`INSERT INTO vehicles (license_plate, brand, model, year, vin, fuel_type, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)`, 
+    [license_plate, brand, model, year, vin, fuel_type, user_id || null], () => res.json({ ok: true }));
+});
+
+app.put('/api/vehicles/:id', (req, res) => {
+    const { license_plate, brand, model, year, vin, fuel_type, user_id } = req.body;
+    db.run(`UPDATE vehicles SET license_plate=?, brand=?, model=?, year=?, vin=?, fuel_type=?, user_id=? WHERE id=?`, 
+    [license_plate, brand, model, year, vin, fuel_type, user_id || null, req.params.id], () => res.json({ ok: true }));
+});
+
+app.delete('/api/vehicles/:id', (req, res) => {
+    db.run("DELETE FROM vehicles WHERE id = ?", req.params.id, () => res.json({ ok: true }));
+});
+
+// USERS
+app.get('/api/users', (req, res) => {
+    db.all("SELECT id, username, password, name, role FROM users", [], (err, rows) => res.json(rows));
+});
+
+app.post('/api/users', (req, res) => {
+    const { username, password, name, role } = req.body;
+    db.run("INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)", [username, password, name, role], () => res.json({ ok: true }));
+});
+
+app.delete('/api/users/:id', (req, res) => {
+    db.run("UPDATE vehicles SET user_id = NULL WHERE user_id = ?", [req.params.id], () => {
+        db.run("DELETE FROM users WHERE id = ?", req.params.id, () => res.json({ m: "ok" }));
+    });
+});
+
+// REPORTS
+app.get('/api/reports', (req, res) => {
+    const sql = `SELECT r.*, v.license_plate, v.brand, v.model FROM reports r JOIN vehicles v ON r.vehicle_id = v.id ORDER BY r.created_at DESC`;
+    db.all(sql, [], (err, rows) => res.json(rows));
+});
+
+app.post('/api/reports', (req, res) => {
+    const { vehicle_id, description } = req.body;
+    db.run("INSERT INTO reports (vehicle_id, description) VALUES (?, ?)", [vehicle_id, description], () => res.json({ ok: true }));
+});
+
+app.patch('/api/reports/:id', (req, res) => {
+    db.run("UPDATE reports SET status = ? WHERE id = ?", [req.body.status, req.params.id], () => res.json({ ok: true }));
+});
+
+app.listen(PORT, () => console.log(`🚀 Szerver fut: http://localhost:${PORT}`));
