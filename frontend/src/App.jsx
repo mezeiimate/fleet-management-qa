@@ -1,49 +1,48 @@
-import { useState } from 'react'
-import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import VehicleList from './pages/VehicleList'
-import ServiceBoard from './pages/ServiceBoard'
-import MyCar from './pages/MyCar'
-import UserManagement from './pages/UserManagement'
+import React, { useState, useEffect } from 'react';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import VehicleList from './pages/VehicleList';
+import UserManagement from './pages/UserManagement';
+import ServiceBoard from './pages/ServiceBoard';
+import MyCar from './pages/MyCar';
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [user, setUser] = useState(null)
-  const [currentPage, setCurrentPage] = useState('dashboard')
+  const [user, setUser] = useState(null);
+  const [currentPage, setCurrentPage] = useState('dashboard');
 
+  // Belépéskor elmentjük a user adatait (név, szerepkör)
   const handleLogin = (userData) => {
-    setUser(userData)
-    setIsLoggedIn(true)
-  }
+    setUser(userData);
+    setCurrentPage('dashboard');
+  };
 
   const handleLogout = () => {
-    setIsLoggedIn(false)
-    setUser(null)
-    setCurrentPage('dashboard')
+    setUser(null);
+    setCurrentPage('dashboard');
+  };
+
+  // Ha nincs bejelentkezve senki, a Login oldalt mutatjuk
+  if (!user) {
+    return <Login onLogin={handleLogin} />;
   }
 
-  const renderPage = () => {
-    switch(currentPage) {
-      case 'vehicles': return <VehicleList onBack={() => setCurrentPage('dashboard')} />
-      case 'service': return <ServiceBoard onBack={() => setCurrentPage('dashboard')} />
-      case 'my-car': return <MyCar onBack={() => setCurrentPage('dashboard')} userId={user.id} />
-      case 'users': return <UserManagement onBack={() => setCurrentPage('dashboard')} />
-      default: return (
+  // Navigáció a Dashboardról a modulokba
+  return (
+    <>
+      {currentPage === 'dashboard' && (
         <Dashboard 
           userRole={user.role} 
-          userName={user.name} 
+          userName={user.username} 
           onLogout={handleLogout} 
           onNavigate={setCurrentPage} 
         />
-      )
-    }
-  }
-
-  return (
-    <div>
-      {!isLoggedIn ? <Login onLogin={handleLogin} /> : renderPage()}
-    </div>
-  )
+      )}
+      {currentPage === 'vehicles' && <VehicleList onBack={() => setCurrentPage('dashboard')} />}
+      {currentPage === 'users' && <UserManagement onBack={() => setCurrentPage('dashboard')} />}
+      {currentPage === 'service' && <ServiceBoard onBack={() => setCurrentPage('dashboard')} />}
+      {currentPage === 'my-car' && <MyCar userId={user.id} onBack={() => setCurrentPage('dashboard')} />}
+    </>
+  );
 }
 
-export default App
+export default App;

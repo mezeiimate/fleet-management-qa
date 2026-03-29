@@ -1,73 +1,109 @@
-import { useEffect, useState } from 'react';
-import axios from 'axios';
+import React from 'react';
 
-function Dashboard({ userRole, onLogout, onNavigate }) {
-  const [stats, setStats] = useState({ totalVehicles: 0, gasoline: 0, diesel: 0, electric: 0 });
-
-  useEffect(() => {
-    axios.get('http://localhost:5000/api/stats')
-      .then(res => setStats(res.data))
-      .catch(err => console.error("Hiba a statisztikánál:", err));
-  }, []);
-
-  const menuItems = [
-    { title: "Járműpark", roles: ["admin", "support"], icon: "🚗", target: 'vehicles' },
-    { title: "Saját autóm", roles: ["driver"], icon: "🔑", target: 'my-car' },
-    { title: "Felhasználók", roles: ["admin"], icon: "👥", target: 'users' },
-    { title: "Szerviz naptár", roles: ["admin", "support"], icon: "📅", target: 'service' },
-  ];
+function Dashboard({ userRole, userName, onLogout, onNavigate }) {
+  const isAdmin = userRole === 'admin';
+  const isSupport = userRole === 'support';
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      {/* Fejléc */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-black text-gray-800">Üdvözöljük, {userRole}!</h1>
-          <p className="text-gray-500 font-medium">Flotta Kezelő Rendszer v1.0</p>
+    <div className="min-h-screen bg-[#f8fafc]">
+      {/* Navigációs sáv */}
+      <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center shadow-sm">
+        <div className="flex items-center gap-2">
+          <div className="bg-blue-600 text-white p-2 rounded-lg text-xl">🚛</div>
+          <span className="font-black text-xl tracking-tighter italic text-slate-800">
+            FLEET<span className="text-blue-600">CORE</span>
+          </span>
         </div>
-        <button onClick={onLogout} className="bg-white text-red-500 border-2 border-red-500 px-6 py-2 rounded-full font-bold hover:bg-red-500 hover:text-white transition">
-          Kijelentkezés
-        </button>
-      </div>
-
-      {/* STATISZTIKA SÁV (Csak Adminnak és Supportnak) */}
-      {(userRole === 'admin' || userRole === 'support') && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-blue-500">
-            <p className="text-gray-400 text-xs font-bold uppercase">Összes jármű</p>
-            <p className="text-3xl font-black text-gray-800">{stats.totalVehicles} db</p>
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <p className="text-[10px] font-black text-slate-400 uppercase leading-none">Bejelentkezve</p>
+            <p className="font-bold text-sm text-slate-700">{userName}</p>
           </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-yellow-500">
-            <p className="text-gray-400 text-xs font-bold uppercase">Benzines</p>
-            <p className="text-3xl font-black text-gray-800">{stats.gasoline}</p>
-          </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-gray-700">
-            <p className="text-gray-400 text-xs font-bold uppercase">Dízel</p>
-            <p className="text-3xl font-black text-gray-800">{stats.diesel}</p>
-          </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-green-500">
-            <p className="text-gray-400 text-xs font-bold uppercase">Elektromos</p>
-            <p className="text-3xl font-black text-gray-800">{stats.electric}</p>
-          </div>
+          <button 
+            onClick={onLogout}
+            className="bg-slate-100 hover:bg-red-50 hover:text-red-600 px-4 py-2 rounded-xl font-bold text-xs transition-all"
+          >
+            KIJELENTKEZÉS
+          </button>
         </div>
-      )}
+      </nav>
 
-      {/* MENÜ GOMBOK */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {menuItems
-          .filter(item => item.roles.includes(userRole))
-          .map((item, index) => (
-            <div 
-              key={index} 
-              onClick={() => onNavigate(item.target)} 
-              className="bg-white p-10 rounded-3xl shadow-md hover:shadow-xl transition-all cursor-pointer border border-gray-100 flex flex-col items-center group"
-            >
-              <div className="text-6xl mb-4 group-hover:scale-110 transition-transform">{item.icon}</div>
-              <h3 className="text-xl font-black text-gray-700 uppercase tracking-tighter">{item.title}</h3>
-            </div>
-          ))}
-      </div>
+      {/* Tartalom */}
+      <main className="max-w-7xl mx-auto p-8">
+        <header className="mb-10">
+          <h1 className="text-4xl font-black text-slate-800 tracking-tight">
+            Üdvözöljük, <span className="text-blue-600">{userName}!</span>
+          </h1>
+          <p className="text-slate-500 font-medium mt-2">Válasszon az alábbi modulok közül a flotta kezeléséhez.</p>
+        </header>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {(isAdmin || isSupport) && (
+            <>
+              <MenuCard 
+                title="Járműpark" 
+                desc="A teljes flotta áttekintése, autók szerkesztése és állapotkövetés." 
+                icon="🚗" 
+                color="blue"
+                onClick={() => onNavigate('vehicles')} 
+              />
+              <MenuCard 
+                title="Szerviz naptár" 
+                desc="Beérkezett hibajelentések és javítások menedzselése." 
+                icon="🔧" 
+                color="red"
+                onClick={() => onNavigate('service')} 
+              />
+            </>
+          )}
+
+          {isAdmin && (
+            <MenuCard 
+              title="Felhasználók" 
+              desc="Munkatársak, sofőrök és rendszerjogosultságok kezelése." 
+              icon="👥" 
+              color="indigo"
+              onClick={() => onNavigate('users')} 
+            />
+          )}
+
+          {userRole === 'driver' && (
+            <MenuCard 
+              title="Saját autóm" 
+              desc="Hozzárendelt jármű adatai és gyors hibajelentés." 
+              icon="🔑" 
+              color="green"
+              onClick={() => onNavigate('my-car')} 
+            />
+          )}
+        </div>
+      </main>
     </div>
+  );
+}
+
+function MenuCard({ title, desc, icon, color, onClick }) {
+  const colors = {
+    blue: "border-blue-500 text-blue-600 bg-blue-50",
+    red: "border-red-500 text-red-600 bg-red-50",
+    indigo: "border-indigo-500 text-indigo-600 bg-indigo-50",
+    green: "border-green-500 text-green-600 bg-green-50"
+  };
+
+  return (
+    <button 
+      onClick={onClick}
+      className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-xl flex flex-col h-full group"
+    >
+      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-6 border-b-4 ${colors[color]}`}>
+        {icon}
+      </div>
+      <h3 className="text-xl font-black text-slate-800 mb-2">{title}</h3>
+      <p className="text-slate-500 text-sm font-medium leading-relaxed flex-grow">{desc}</p>
+      <div className="mt-6 flex items-center text-blue-600 font-bold text-xs uppercase tracking-widest group-hover:gap-2 transition-all">
+        Megnyitás <span className="opacity-0 group-hover:opacity-100 transition-all">→</span>
+      </div>
+    </button>
   );
 }
 

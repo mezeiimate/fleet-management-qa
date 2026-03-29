@@ -1,141 +1,144 @@
-import { useEffect, useState } from 'react'
-import axios from 'axios'
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 
 function VehicleList({ onBack }) {
-  const [vehicles, setVehicles] = useState([])
-  const [drivers, setDrivers] = useState([])
-  const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState(null)
-  const [newCar, setNewCar] = useState({ 
-    license_plate: '', brand: '', model: '', year: '', vin: '', fuel_type: 'Benzin', user_id: '' 
-  })
-
+  const [vehicles, setVehicles] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [fuelFilter, setFuelFilter] = useState('Mind');
+  const [showModal, setShowModal] = useState(false);
+  
+  // Űrlap állapota
+  const [formData, setFormData] = useState({
+    license_plate: '', brand: '', model: '', year: '', fuel_type: 'Benzin'
+  });
 
   const fetchData = async () => {
     try {
-      const vRes = await axios.get('http://localhost:5000/api/vehicles-full');
-      const dRes = await axios.get('http://localhost:5000/api/users');
-      setVehicles(vRes.data);
-      setDrivers(dRes.data.filter(u => u.role === 'driver'));
-    } catch (err) { console.error(err); }
-  }
+      const res = await axios.get('http://localhost:5000/api/vehicles-full');
+      setVehicles(res.data);
+    } catch (err) { console.error("Hiba az adatok lekérésekor:", err); }
+  };
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => { fetchData(); }, []);
 
-  const filteredVehicles = vehicles.filter(v => {
-    const matchesSearch = v.license_plate.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          v.brand.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFuel = fuelFilter === 'Mind' || v.fuel_type === fuelFilter;
-    return matchesSearch && matchesFuel;
-  });
+  const handleInputChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const action = editingId 
-      ? axios.put(`http://localhost:5000/api/vehicles/${editingId}`, newCar)
-      : axios.post('http://localhost:5000/api/vehicles', newCar);
+    try {
+      // Itt küldjük az adatot a backendnek
+      await axios.post('http://localhost:5000/api/vehicles', formData);
+      setShowModal(false);
+      setFormData({ license_plate: '', brand: '', model: '', year: '', fuel_type: 'Benzin' });
+      fetchData(); // Újratöltjük a listát
+    } catch (err) {
+      alert("Hiba történt a mentés során!"); // QA Teszt pont: Ezt majd le kell cserélni szebb hibaüzenetre!
+    }
+  };
 
-    action.then(() => { fetchData(); resetForm(); });
-  }
-
-  const resetForm = () => {
-    setShowForm(false); setEditingId(null);
-    setNewCar({ license_plate: '', brand: '', model: '', year: '', vin: '', fuel_type: 'Benzin', user_id: '' });
-  }
+  const filteredVehicles = vehicles.filter(v => 
+    v.license_plate?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    v.brand?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border-b-4 border-blue-600">
-          <button onClick={onBack} className="font-bold text-gray-500 hover:text-blue-600">← Vissza</button>
-          <h1 className="text-2xl font-black tracking-tight uppercase">Flotta Áttekintés</h1>
-          <button onClick={() => { if(showForm) resetForm(); else setShowForm(true); }} className="bg-blue-600 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:bg-blue-700 transition">
-            {showForm ? "Mégse" : "+ Új jármű"}
-          </button>
+    <div className="min-h-screen bg-[#f8fafc] relative">
+      {/* Fejléc */}
+      <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+        <button onClick={onBack} className="text-slate-500 font-bold flex items-center gap-2 hover:text-blue-600 transition-colors">
+          <span>←</span> VISSZA
+        </button>
+        <h1 className="text-xl font-black tracking-tight italic text-slate-800">
+          JÁRMŰ<span className="text-blue-600">PARK</span>
+        </h1>
+        <button 
+          onClick={() => setShowModal(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl font-black text-xs transition-all shadow-lg shadow-blue-200"
+        >
+          + ÚJ AUTÓ
+        </button>
+      </nav>
+
+      <main className="max-w-7xl mx-auto p-8">
+        <div className="mb-8 relative">
+          <input 
+            type="text" 
+            placeholder="Keresés rendszám vagy típus alapján..."
+            className="w-full bg-white border border-slate-200 p-4 pl-12 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-slate-700"
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <span className="absolute left-4 top-4 opacity-30 text-xl">🔍</span>
         </div>
 
-        {/* KERESŐ ÉS SZŰRŐ */}
-        <div className="bg-white p-4 rounded-2xl shadow-sm mb-6 flex flex-col md:flex-row gap-4">
-            <input 
-                placeholder="Rendszám vagy márka keresése..." 
-                className="flex-1 bg-gray-50 border-2 border-transparent focus:border-blue-500 p-3 rounded-xl outline-none transition"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-            />
-            <select 
-                className="bg-gray-50 border-2 border-transparent focus:border-blue-500 p-3 rounded-xl outline-none font-bold text-gray-600"
-                value={fuelFilter}
-                onChange={e => setFuelFilter(e.target.value)}
-            >
-                <option value="Mind">Összes üzemanyag</option>
-                <option value="Benzin">Benzin</option>
-                <option value="Dízel">Dízel</option>
-                <option value="Elektromos">Elektromos</option>
-            </select>
-        </div>
-
-        {showForm && (
-          <div className="bg-white p-8 rounded-2xl shadow-xl mb-8 border-t-8 border-blue-500 animate-in fade-in duration-300">
-            <h2 className="text-xl font-bold mb-6 text-gray-700">{editingId ? 'Jármű szerkesztése' : 'Új jármű rögzítése'}</h2>
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <input placeholder="Rendszám" className="border-2 p-3 rounded-xl font-bold" value={newCar.license_plate} onChange={e => setNewCar({...newCar, license_plate: e.target.value.toUpperCase()})} required />
-              <input placeholder="Márka" className="border-2 p-3 rounded-xl" value={newCar.brand} onChange={e => setNewCar({...newCar, brand: e.target.value})} required />
-              <input placeholder="Típus" className="border-2 p-3 rounded-xl" value={newCar.model} onChange={e => setNewCar({...newCar, model: e.target.value})} required />
-              <select className="border-2 p-3 rounded-xl bg-white" value={newCar.user_id} onChange={e => setNewCar({...newCar, user_id: e.target.value})}>
-                <option value="">Nincs kijelölve sofőr</option>
-                {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-              <select className="border-2 p-3 rounded-xl bg-white" value={newCar.fuel_type} onChange={e => setNewCar({...newCar, fuel_type: e.target.value})}>
-                <option value="Benzin">Benzin</option>
-                <option value="Dízel">Dízel</option>
-                <option value="Elektromos">Elektromos</option>
-              </select>
-              <button type="submit" className="md:col-span-3 bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition">ADATOK MENTÉSE</button>
-            </form>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredVehicles.map(v => (
-            <div key={v.id} className="bg-white rounded-[2rem] shadow-md p-6 relative border-2 border-transparent hover:border-blue-200 transition-all hover:shadow-2xl group">
-              <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => {setNewCar(v); setEditingId(v.id); setShowForm(true);}} className="bg-gray-100 p-2 rounded-lg hover:bg-blue-100 transition">✏️</button>
-                <button onClick={() => {if(window.confirm("Törlés?")) axios.delete(`http://localhost:5000/api/vehicles/${v.id}`).then(()=>fetchData())}} className="bg-gray-100 p-2 rounded-lg hover:bg-red-100 transition">🗑️</button>
+            <div key={v.id} className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 relative">
+              <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest leading-none mb-1">
+                {v.brand} {v.model}
+              </p>
+              <h2 className="text-3xl font-black text-slate-800 tracking-tighter italic mb-4">
+                {v.license_plate}
+              </h2>
+              <div className="bg-slate-50 px-3 py-1 rounded-lg text-[10px] font-bold text-slate-400 border border-slate-100 inline-block">
+                {v.fuel_type?.toUpperCase() || 'ISMERETLEN'}
               </div>
-
-              <h2 className="text-3xl font-black text-gray-800 italic tracking-tighter">{v.license_plate}</h2>
-              <p className="text-gray-400 font-bold text-sm uppercase mb-4">{v.brand} {v.model}</p>
-              
-              <div className="flex items-center gap-2 mb-4">
-                <span className="bg-blue-50 text-blue-600 text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-widest">{v.fuel_type}</span>
-                <span className="text-gray-300">•</span>
-                <span className="text-gray-500 text-xs font-bold italic">{v.driver_name || "Nincs sofőr"}</span>
-              </div>
-
-              {/* JELENTETT HIBÁK MEGJELENÍTÉSE */}
-              {v.reports && v.reports.length > 0 && (
-                <div className="mt-4 p-4 bg-red-50 rounded-2xl border border-red-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="animate-pulse">⚠️</span>
-                    <span className="text-red-600 font-black text-[10px] uppercase tracking-tighter">Aktív hibajelentések ({v.reports.length})</span>
-                  </div>
-                  <ul className="space-y-1">
-                    {v.reports.map(r => (
-                      <li key={r.id} className="text-red-800 text-xs font-medium border-l-2 border-red-300 pl-2">
-                        {r.description}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
           ))}
         </div>
-      </div>
+      </main>
+
+      {/* MODAL - Új autó felvétele */}
+      {showModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="bg-slate-50 p-6 border-b border-slate-100 flex justify-between items-center">
+              <h2 className="text-xl font-black text-slate-800">Új Jármű Felvétele</h2>
+              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-red-500 font-bold text-xl">✕</button>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Rendszám</label>
+                  <input type="text" name="license_plate" value={formData.license_plate} onChange={handleInputChange} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 font-bold" placeholder="Pl. ABC-123" required />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Évjárat</label>
+                  <input type="number" name="year" value={formData.year} onChange={handleInputChange} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 font-bold" placeholder="Pl. 2020" required />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Márka</label>
+                  <input type="text" name="brand" value={formData.brand} onChange={handleInputChange} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 font-bold" placeholder="Pl. Ford" required />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Modell</label>
+                  <input type="text" name="model" value={formData.model} onChange={handleInputChange} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 font-bold" placeholder="Pl. Focus" required />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Üzemanyag</label>
+                <select name="fuel_type" value={formData.fuel_type} onChange={handleInputChange} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 font-bold text-slate-700">
+                  <option value="Benzin">Benzin</option>
+                  <option value="Dízel">Dízel</option>
+                  <option value="Elektromos">Elektromos</option>
+                  <option value="Hibrid">Hibrid</option>
+                </select>
+              </div>
+
+              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl mt-6 transition-all">
+                JÁRMŰ MENTÉSE
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
-  )
+  );
 }
 
-export default VehicleList
+export default VehicleList;

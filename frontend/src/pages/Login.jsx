@@ -1,54 +1,80 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 
 function Login({ onLogin }) {
-  const [credentials, setCredentials] = useState({ username: '', password: '' });
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     try {
-      const res = await axios.post('http://localhost:5000/api/login', credentials);
-      if (res.data.success) {
-        onLogin(res.data.user); 
-      }
+      const res = await axios.post('http://localhost:5000/api/login', { username, password });
+      
+      // JAVÍTÁS: Itt kezeljük le, ha a backend máshogy (pl. objektumba csomagolva) küldi a user adatokat
+      onLogin(res.data.user || res.data); 
+      
     } catch (err) {
       setError('Hibás felhasználónév vagy jelszó!');
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-6">
-      <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden">
-        <div className="bg-blue-600 p-12 text-center">
-          <h1 className="text-white text-4xl font-black italic tracking-tighter">FLEET CORE</h1>
-          <p className="text-blue-200 text-xs font-bold uppercase mt-2 tracking-widest">Központi Autópark Kezelő</p>
+    <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] p-6">
+      <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-xl shadow-blue-100/50 p-10 border border-slate-100">
+        <div className="text-center mb-10">
+          <div className="bg-blue-600 text-white w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-lg shadow-blue-200">
+            🚛
+          </div>
+          <h1 className="text-3xl font-black tracking-tighter italic text-slate-800">
+            FLEET<span className="text-blue-600">CORE</span>
+          </h1>
+          <p className="text-slate-400 font-medium text-sm mt-2">Vállalati Flottakezelő Rendszer</p>
         </div>
-        <form onSubmit={handleLogin} className="p-10 space-y-6">
-          {error && <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-bold border-l-4 border-red-500">{error}</div>}
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Azonosító</label>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2">Felhasználónév</label>
             <input 
-              type="text" required
-              className="w-full border-2 border-gray-100 bg-gray-50 p-4 rounded-2xl outline-none focus:border-blue-600 focus:bg-white transition-all font-bold"
-              value={credentials.username}
-              onChange={e => setCredentials({...credentials, username: e.target.value})}
+              type="text" 
+              className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-slate-700"
+              placeholder="admin / driver"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
             />
           </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Jelszó</label>
+
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2">Jelszó</label>
             <input 
-              type="password" required
-              className="w-full border-2 border-gray-100 bg-gray-50 p-4 rounded-2xl outline-none focus:border-blue-600 focus:bg-white transition-all font-bold"
-              value={credentials.password}
-              onChange={e => setCredentials({...credentials, password: e.target.value})}
+              type="password" 
+              className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-slate-700"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
             />
           </div>
-          <button type="submit" className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 active:scale-95">
-            BELÉPÉS A RENDSZERBE
+
+          {/* Szuper-látható piros hibaüzenet QA teszteléshez */}
+          {error && (
+            <div className="bg-red-600 text-white text-xs font-black p-4 rounded-2xl text-center shadow-lg shadow-red-200 border-b-4 border-red-800 uppercase tracking-widest">
+              ⚠️ {error}
+            </div>
+          )}
+
+          <button 
+            type="submit" 
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-blue-200 transition-all active:scale-[0.98]"
+          >
+            BEJELENTKEZÉS
           </button>
         </form>
+
+        <p className="text-center text-slate-400 text-[10px] mt-8 font-medium">
+          © 2026 FleetCore QA Testing Environment
+        </p>
       </div>
     </div>
   );
