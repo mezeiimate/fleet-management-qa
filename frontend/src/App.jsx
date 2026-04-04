@@ -31,10 +31,9 @@ function App() {
     <>
       {currentPage === 'dashboard' && (
         <Dashboard 
-          userRole={user.role} 
-          userName={user.username} 
+          user={user} 
           onLogout={handleLogout} 
-          onNavigate={setCurrentPage} 
+          onChangePage={setCurrentPage} 
         />
       )}
       {currentPage === 'vehicles' && <VehicleList onBack={() => setCurrentPage('dashboard')} />}
