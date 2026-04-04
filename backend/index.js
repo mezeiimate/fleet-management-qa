@@ -63,8 +63,55 @@ app.get('/api/my-vehicles/:userId', (req, res) => {
 
 app.post('/api/vehicles', (req, res) => {
     const { license_plate, brand, model, year, vin, fuel_type, user_id } = req.body;
-    db.run(`INSERT INTO vehicles (license_plate, brand, model, year, vin, fuel_type, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)`, 
-    [license_plate, brand, model, year, vin, fuel_type, user_id || null], () => res.json({ ok: true }));
+
+    // --- 1. QA: BACKEND VALIDÁCIÓ ---
+    const currentYear = new Date().getFullYear();
+    
+    // Évjárat ellenőrzése
+    if (!year || year < 1900 || year > currentYear + 1) {
+        return res.status(400).json({ error: `Az évjáratnak 1900 és ${currentYear + 1} között kell lennie!` });
+    }
+
+    // --- RENDSZÁM ELLENŐRZÉSE (Régi, Új, Egyéni, Egyedi) ---
+    if (!license_plate) {
+        return res.status(400).json({ error: "A rendszám megadása kötelező!" });
+    }
+
+    // Tisztítás: Kötőjelek és szóközök törlése, nagybetűsítés (pl. "aBc - 123" -> "ABC123")
+    const cleanPlate = license_plate.toUpperCase().replace(/[-\s]/g, ''); 
+    
+    // 1. Szabály: A hossznak pontosan 6-nak vagy 7-nek kell lennie
+    const isValidLength = cleanPlate.length === 6 || cleanPlate.length === 7;
+    
+    // 2. Szabály: Betűkkel kezdődik (3-6 db), számokkal végződik (1-4 db)
+    const isCorrectFormat = /^[A-Z]{3,6}[0-9]{1,4}$/.test(cleanPlate);
+    
+    // 3. Szabály: A szám rész nem lehet csupa nulla (pl. ABC-000 vagy AAAAA-0)
+    const isNotOnlyZeroes = !/[A-Z]0+$/.test(cleanPlate); 
+
+    if (!isValidLength || !isCorrectFormat || !isNotOnlyZeroes) {
+        return res.status(400).json({ 
+            error: "Érvénytelen rendszám! Elfogadott formátumok: 3-6 betű, majd 1-4 szám (pl. ABC-123, ABCD-123 vagy egyéni/egyedi). Csupa nulla nem adható meg." 
+        });
+    }
+    // --------------------------------------------------------
+
+    // --- 2. QA: HIBAKEZELÉS ÉS MENTÉS ---
+    db.run(
+        `INSERT INTO vehicles (license_plate, brand, model, year, vin, fuel_type, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)`, 
+        // Mentésnél visszatesszük a megtisztított, egységesített nagybetűs formátumot
+        [cleanPlate, brand, model, year, vin, fuel_type, user_id || null], 
+        function(err) {
+            if (err) {
+                console.error("Adatbázis hiba mentéskor:", err.message);
+                if (err.message.includes('UNIQUE')) {
+                    return res.status(400).json({ error: "Ez a rendszám már szerepel a rendszerben!" });
+                }
+                return res.status(500).json({ error: "Szerverhiba történt a jármű mentésekor." });
+            }
+            res.json({ ok: true, inserted_id: this.lastID });
+        }
+    );
 });
 
 app.put('/api/vehicles/:id', (req, res) => {

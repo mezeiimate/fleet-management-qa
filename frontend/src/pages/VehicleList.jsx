@@ -102,6 +102,9 @@ function VehicleList({ onBack }) {
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Rendszám</label>
                   <input type="text" name="license_plate" value={formData.license_plate} onChange={handleInputChange} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 font-bold" placeholder="Pl. ABC-123" required />
+                  <p className="text-xs text-gray-500 mt-1 ml-1">
+                              Elfogadott formátumok: 3-6 betű, majd 1-4 szám (pl. ABC-123, ABCD-123 vagy egyedi). Csupa nulla nem adható meg. (kötőjel és szóköz is használható).
+                  </p>
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Évjárat</label>
