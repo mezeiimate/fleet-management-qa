@@ -1,43 +1,35 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import ProfileModal from '../components/ProfileModal'; // <-- ÚJ IMPORT
 
 function Dashboard({ onLogout, onChangePage, user }) {
   const [stats, setStats] = useState({ totalVehicles: 0, gasoline: 0, diesel: 0, electric: 0 });
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // Gombkattintás védelme (ha az App.jsx nincs frissítve)
-  const handleNavigation = (page) => {
-    if (typeof onChangePage === 'function') {
-      onChangePage(page);
-    } else {
-      alert("Fejlesztői infó: Az App.jsx-ben add hozzá a Dashboardhoz az onChangePage={setCurrentPage} propot!");
-    }
-  };
+  
+  // <-- ÚJ ÁLLAPOT A PROFIL ABLAKHOZ -->
+  const [showProfile, setShowProfile] = useState(false);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // 1. Megpróbáljuk lekérni a statisztikákat
-        try {
-          const statsRes = await axios.get('http://localhost:5000/api/stats');
-          setStats(statsRes.data);
-        } catch (e) { console.error("Nem sikerült betölteni a statisztikát", e); }
+        const [statsRes, vehiclesRes] = await Promise.all([
+          axios.get('http://localhost:5000/api/stats').catch(() => ({ data: {} })),
+          axios.get('http://localhost:5000/api/vehicles-full').catch(() => ({ data: [] }))
+        ]);
 
-        // 2. Lekérjük a járműveket a riasztásokhoz
-        const vehiclesRes = await axios.get('http://localhost:5000/api/vehicles-full');
+        setStats(statsRes.data);
         const vehiclesData = vehiclesRes.data || [];
 
         // --- INTELLIGENS RIASZTÁS GENERÁTOR ---
         const generatedAlerts = [];
         const today = new Date();
         today.setHours(0, 0, 0, 0); 
-        
         const next30Days = new Date();
         next30Days.setDate(today.getDate() + 30);
 
         vehiclesData.forEach(v => {
-          // 1. Szervizes riasztások (kisbetűsítve a biztonság kedvéért)
+          // 1. Szervizes riasztások
           if (v.status && v.status.toLowerCase() === 'szervizben') {
             generatedAlerts.push({
               id: `srv-${v.id}`, type: 'service', severity: 'red',
@@ -70,7 +62,7 @@ function Dashboard({ onLogout, onChangePage, user }) {
               });
           }
 
-          // 3. Matrica riasztások (Biztonságos JSON feldolgozás)
+          // 3. Matrica riasztások
           let stickersArray = [];
           if (typeof v.stickers === 'string') {
             try { stickersArray = JSON.parse(v.stickers); } catch(e) {}
@@ -98,7 +90,6 @@ function Dashboard({ onLogout, onChangePage, user }) {
           });
         });
 
-        // Riasztások rendezése: Pirosak (kritikus) felülre
         generatedAlerts.sort((a, b) => {
           if (a.severity === 'red' && b.severity !== 'red') return -1;
           if (a.severity !== 'red' && b.severity === 'red') return 1;
@@ -118,21 +109,29 @@ function Dashboard({ onLogout, onChangePage, user }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] font-sans">
+    <div className="min-h-screen bg-[#f8fafc] font-sans pb-20">
+      {/* --- FEJLÉC: PROFIL GOMB --- */}
       <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-20 shadow-sm">
         <h1 className="text-2xl font-black tracking-tight italic text-slate-800">
           FLEET<span className="text-blue-600">COMMAND</span>
         </h1>
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-slate-100 border-2 border-white shadow-sm flex items-center justify-center font-black text-slate-400 text-sm">
-              {user?.name?.charAt(0) || 'A'}
+          
+          {/* EZ LETT KATTINTHATÓ */}
+          <div 
+            onClick={() => setShowProfile(true)}
+            className="flex items-center gap-3 cursor-pointer hover:bg-slate-50 p-2 rounded-xl transition-colors"
+            title="Kattints a profilod szerkesztéséhez"
+          >
+            <div className="w-10 h-10 rounded-full bg-slate-100 border-2 border-slate-200 shadow-sm flex items-center justify-center font-black text-slate-500 text-sm">
+              {user?.name?.charAt(0)?.toUpperCase() || '👤'}
             </div>
             <div className="text-right hidden md:block">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{user?.role || 'Admin'}</p>
-              <p className="text-sm font-bold text-slate-700 leading-tight">{user?.name || 'Rendszergazda'}</p>
+              <p className="text-xs font-black text-blue-500 uppercase tracking-widest hover:underline">{user?.role === 'admin' ? 'Rendszergazda' : user?.role === 'operator' ? 'Diszpécser' : 'Sofőr'}</p>
+              <p className="text-sm font-bold text-slate-700 leading-tight">{user?.name || 'Ismeretlen Felhasználó'}</p>
             </div>
           </div>
+
           <button onClick={onLogout} className="text-xs font-bold text-slate-400 hover:text-red-500 uppercase tracking-widest transition-colors border-l border-slate-200 pl-6">
             Kijelentkezés
           </button>
@@ -145,11 +144,22 @@ function Dashboard({ onLogout, onChangePage, user }) {
             <h2 className="text-3xl font-black text-slate-800 tracking-tighter mb-2">Vezérlőpult</h2>
             <p className="text-slate-500 font-medium">Itt az aktuális flottaállapot egy pillantással.</p>
           </div>
-          <div className="flex gap-3">
-            <button onClick={() => handleNavigation('vehicles')} className="bg-white border border-slate-200 hover:border-blue-500 hover:text-blue-600 text-slate-600 font-bold px-6 py-3 rounded-xl transition-all shadow-sm flex items-center gap-2">
+          <div className="flex flex-wrap gap-3">
+            {/* CSAK ADMIN LÁTJA EZEKET A GOMBOKAT */}
+            {user?.role === 'admin' && (
+              <>
+                <button onClick={() => onChangePage('users')} className="bg-purple-600 hover:bg-purple-700 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-sm flex items-center gap-2">
+                  <span>👥</span> Felhasználók
+                </button>
+                <button onClick={() => onChangePage('settings')} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-sm flex items-center gap-2">
+                  <span>⚙️</span> Beállítások
+                </button>
+              </>
+            )}
+            <button onClick={() => onChangePage('vehicles')} className="bg-white border border-slate-200 hover:border-blue-500 hover:text-blue-600 text-slate-600 font-bold px-6 py-3 rounded-xl transition-all shadow-sm flex items-center gap-2">
               <span>🚗</span> Járműpark
             </button>
-            <button onClick={() => handleNavigation('service')} className="bg-white border border-slate-200 hover:border-red-500 hover:text-red-600 text-slate-600 font-bold px-6 py-3 rounded-xl transition-all shadow-sm flex items-center gap-2">
+            <button onClick={() => onChangePage('service')} className="bg-white border border-slate-200 hover:border-red-500 hover:text-red-600 text-slate-600 font-bold px-6 py-3 rounded-xl transition-all shadow-sm flex items-center gap-2">
               <span>🛠️</span> Szerviznapló
             </button>
           </div>
@@ -159,7 +169,6 @@ function Dashboard({ onLogout, onChangePage, user }) {
           <div className="text-center text-slate-400 font-bold mt-20 animate-pulse">Adatok szinkronizálása...</div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Statisztika oszlop */}
             <div className="lg:col-span-1 space-y-6">
               <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2rem] p-8 text-white shadow-xl shadow-blue-900/20 relative overflow-hidden">
                 <div className="relative z-10">
@@ -186,7 +195,6 @@ function Dashboard({ onLogout, onChangePage, user }) {
               </div>
             </div>
 
-            {/* Riasztások oszlop */}
             <div className="lg:col-span-2">
               <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-100 min-h-full">
                 <div className="flex justify-between items-center mb-6">
@@ -219,10 +227,17 @@ function Dashboard({ onLogout, onChangePage, user }) {
                 )}
               </div>
             </div>
-
           </div>
         )}
       </main>
+
+      {/* --- ITT A LÉNYEG: A BEILLESZTETT PROFIL MODÁL --- */}
+      <ProfileModal 
+        user={user} 
+        isOpen={showProfile} 
+        onClose={() => setShowProfile(false)} 
+      />
+
     </div>
   );
 }
