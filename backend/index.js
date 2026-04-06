@@ -1,40 +1,82 @@
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
+require('dotenv').config(); // Ez olvassa be a .env fájlodat!
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000; // Így élesben a szerver portját használja
 
 app.use(cors());
 app.use(express.json());
 
+// EZ A RÉGI POOL HELYETT LESZ:
 const pool = new Pool({
-    user: 'user',
-    host: 'localhost',
-    database: 'fleetdb',
-    password: 'password123',
-    port: 5432,
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false // Ez kötelező a felhős Supabase kapcsolathoz
+    }
 });
+
+// Innentől jön a const initDB = async () => { ... } rész, ahogy eddig is volt!
 
 const initDB = async () => {
     try {
+        // 1. Felhasználók (Users)
         await pool.query(`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username VARCHAR(50) UNIQUE NOT NULL, password VARCHAR(100) NOT NULL, name VARCHAR(100) NOT NULL, role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'operator', 'driver')))`);
-        await pool.query(`CREATE TABLE IF NOT EXISTS sticker_types (id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL, price_category VARCHAR(50))`);
-        await pool.query(`CREATE TABLE IF NOT EXISTS service_logs (id SERIAL PRIMARY KEY, vehicle_id INTEGER REFERENCES vehicles(id) ON DELETE CASCADE, description TEXT NOT NULL, status VARCHAR(50) DEFAULT 'Függőben', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
         
-        try { await pool.query(`ALTER TABLE vehicles ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL`); } catch (e) {}
-        try { await pool.query(`ALTER TABLE vehicles ADD COLUMN category VARCHAR(10) DEFAULT 'D1'`); } catch (e) {}
-        try { await pool.query(`ALTER TABLE sticker_types ADD COLUMN price INTEGER DEFAULT 0`); } catch (e) {}
-        try { await pool.query(`ALTER TABLE vehicle_stickers ADD COLUMN purchase_price INTEGER DEFAULT 0`); } catch (e) {}
-        try { await pool.query(`ALTER TABLE service_logs ADD COLUMN cost INTEGER DEFAULT 0`); } catch (e) {}
+        // 2. Járművek (Vehicles) - EZ HIÁNYZOTT!
+        await pool.query(`CREATE TABLE IF NOT EXISTS vehicles (
+            id SERIAL PRIMARY KEY, 
+            license_plate VARCHAR(20) UNIQUE NOT NULL, 
+            brand VARCHAR(50), 
+            model VARCHAR(50), 
+            year_of_manufacture INTEGER, 
+            vin VARCHAR(20), 
+            fuel_type VARCHAR(50), 
+            transmission VARCHAR(50), 
+            engine_capacity INTEGER, 
+            current_km INTEGER, 
+            status VARCHAR(50) DEFAULT 'Aktív', 
+            technical_exam_until DATE, 
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, 
+            category VARCHAR(10) DEFAULT 'D1',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
 
+        // 3. Matrica típusok (Sticker Types)
+        await pool.query(`CREATE TABLE IF NOT EXISTS sticker_types (id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL, price_category VARCHAR(50), price INTEGER DEFAULT 0)`);
+
+        // 4. Jármű matricák (Vehicle Stickers) - EZ IS HIÁNYZOTT!
+        await pool.query(`CREATE TABLE IF NOT EXISTS vehicle_stickers (
+            id SERIAL PRIMARY KEY,
+            vehicle_id INTEGER REFERENCES vehicles(id) ON DELETE CASCADE,
+            sticker_type_id INTEGER REFERENCES sticker_types(id) ON DELETE CASCADE,
+            valid_until DATE,
+            purchase_price INTEGER DEFAULT 0,
+            issued_at DATE DEFAULT CURRENT_DATE
+        )`);
+
+        // 5. Szerviz napló (Service Logs)
+        await pool.query(`CREATE TABLE IF NOT EXISTS service_logs (
+            id SERIAL PRIMARY KEY, 
+            vehicle_id INTEGER REFERENCES vehicles(id) ON DELETE CASCADE, 
+            description TEXT NOT NULL, 
+            status VARCHAR(50) DEFAULT 'Függőben', 
+            cost INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Alapértelmezett felhasználók létrehozása
         const userCheck = await pool.query("SELECT count(*) FROM users");
         if (parseInt(userCheck.rows[0].count) === 0) {
             await pool.query(`INSERT INTO users (username, password, name, role) VALUES ('admin', 'admin', 'Rendszergazda', 'admin'), ('operator', 'operator', 'Diszpécser', 'operator'), ('sofor', 'sofor', 'Teszt Sofőr', 'driver')`);
         }
-        console.log('✅ Adatbázis inicializálva!');
-    } catch (err) { console.error("Adatbázis hiba:", err.message); }
+        console.log('✅ Adatbázis inicializálva a felhőben!');
+    } catch (err) { 
+        console.error("Adatbázis hiba:", err.message); 
+    }
 };
+
 initDB();
 
 app.post('/api/login', async (req, res) => {
