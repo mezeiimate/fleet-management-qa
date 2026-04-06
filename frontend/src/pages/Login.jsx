@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-// BEHOZZUK A PONTOS SVG LOGÓT
 import logoImage from '../assets/FFR_logo.svg';
 
 const Login = ({ onLogin }) => {

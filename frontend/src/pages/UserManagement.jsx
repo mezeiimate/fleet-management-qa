@@ -114,7 +114,7 @@ function UserManagement({ loggedInUser }) {
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', paddingBottom: '100px' }}>
       
       <div style={{ display: 'flex', width: '1320px', height: '100px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-        <div style={{ color: '#000', fontFamily: '"Space Grotesk"', fontSize: '36px' }}>Munkatársak ({users.length} fő)</div>
+        <div style={{ color: '#000', fontFamily: '"Space Grotesk"', fontSize: '36px' }}>MUNKATÁRSAK ({users.length} FŐ)</div>
         <button 
           onClick={() => openModal('new')}
           style={{ width: '220px', height: '50px', borderRadius: '20px', background: '#2D4353', color: '#F4F8FA', fontFamily: '"Space Grotesk"', fontSize: '20px', fontWeight: '700', border: 'none', cursor: 'pointer' }}

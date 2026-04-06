@@ -88,7 +88,7 @@ function StickerSettings() {
       
       {/* FEJLÉC */}
       <div style={{ display: 'flex', width: '1320px', height: '100px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-        <div style={{ color: '#000', fontFamily: '"Space Grotesk"', fontSize: '36px' }}>Matrica Törzsadatok & Árak</div>
+        <div style={{ color: '#000', fontFamily: '"Space Grotesk"', fontSize: '36px' }}>MATRICÁK</div>
         <button onClick={() => openModal('new')} style={{ padding: '0 30px', height: '50px', borderRadius: '20px', background: '#2D4353', color: '#F4F8FA', fontFamily: '"Space Grotesk"', fontSize: '18px', fontWeight: '700', border: 'none', cursor: 'pointer' }}>
           + ÚJ TÍPUS FELVÉTELE
         </button>
@@ -113,8 +113,8 @@ function StickerSettings() {
             style={{ width: '220px', height: '40px', borderRadius: '10px', border: 'none', padding: '0 10px', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: 'bold', outline: 'none' }}
           >
             <option value="all">Minden kategória</option>
-            <option value="D1M">D1M (Motorkerékpár)</option>
             <option value="D1">D1 (Személyautó)</option>
+            <option value="D1M">D1m (Motorkerékpár)</option>
             <option value="D2">D2 (Teher / Kisbusz)</option>
             <option value="U">U (Utánfutó)</option>
           </select>
@@ -177,9 +177,9 @@ function StickerSettings() {
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <label style={{ fontFamily: '"Space Grotesk"', color: '#172936', fontSize: '16px', marginBottom: '8px', fontWeight: 'bold' }}>Járműkategória</label>
                 <select value={formData.price_category} onChange={(e) => setFormData({...formData, price_category: e.target.value})} style={{ height: '50px', borderRadius: '15px', border: '2px solid #1F5C88', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '18px', background: '#fff', outline: 'none' }}>
-                  <option value="D1M">D1M (Motorkerékpár)</option>
                   <option value="D1">D1 (Személyautó)</option>
-                  <option value="D2">D2 (Tehergépjármű / Kisbusz)</option>
+                  <option value="D1M">D1m (Motorkerékpár)</option>
+                  <option value="D2">D2 (Teher / Kisbusz)</option>
                   <option value="U">U (Utánfutó)</option>
                 </select>
               </div>

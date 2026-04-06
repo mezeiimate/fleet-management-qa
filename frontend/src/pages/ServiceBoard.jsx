@@ -174,7 +174,7 @@ function ServiceBoard() {
       
       {/* FEJLÉC ÉS DINAMIKUS ÖSSZEGZŐ */}
       <div style={{ display: 'flex', width: '1320px', height: '100px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-        <div style={{ color: '#000', fontFamily: '"Space Grotesk"', fontSize: '36px' }}>Szerviz & Pénzügyek</div>
+        <div style={{ color: '#000', fontFamily: '"Space Grotesk"', fontSize: '36px' }}>SZERVIZNAPTÁR</div>
         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
           <div style={{ padding: '10px 20px', background: 'rgba(251, 146, 60, 0.2)', color: '#ea580c', borderRadius: '15px', fontFamily: '"Space Grotesk"', fontWeight: '700', fontSize: '18px' }}>
             Függőben: {pendingLogs.length} db
@@ -197,9 +197,9 @@ function ServiceBoard() {
         
         <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} style={{ width: '160px', height: '40px', borderRadius: '10px', border: 'none', padding: '0 10px', fontFamily: '"Space Grotesk"', fontSize: '16px' }}>
           <option value="all">Minden típus</option>
-          <option value="Szerviz">Csak Szerviz</option>
-          <option value="Matrica">Csak Matrica</option>
-          <option value="Esemény">Csak Esemény</option>
+          <option value="Szerviz">Csak szerviz</option>
+          <option value="Matrica">Csak matrica</option>
+          <option value="Esemény">Csak esemény</option>
         </select>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -252,7 +252,7 @@ function ServiceBoard() {
         {/* JOBB OSZLOP: KÖLTSÉGEK ÉS TÖRTÉNET */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '640px' }}>
           <h2 style={{ fontFamily: '"Space Grotesk"', color: '#172936', fontSize: '24px', margin: '0 0 10px 0', borderBottom: '2px solid #ccc', paddingBottom: '10px' }}>
-            ✅ Pénzügyi Történet ({filteredCosts.length} tétel)
+            ✅ Pénzügyi történet ({filteredCosts.length} tétel)
           </h2>
           
           {filteredCosts.length === 0 ? (

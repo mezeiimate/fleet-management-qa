@@ -181,7 +181,7 @@ function VehicleList() {
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', paddingBottom: '100px' }}>
       
       <div style={{ display: 'flex', width: '1320px', height: '100px', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ color: '#000', fontFamily: '"Space Grotesk"', fontSize: '36px' }}>Járműpark ({filteredVehicles.length} db)</div>
+        <div style={{ color: '#000', fontFamily: '"Space Grotesk"', fontSize: '36px' }}>JÁRMŰVEK ({filteredVehicles.length} DB)</div>
         <button 
           onClick={() => openModal('new')}
           style={{ width: '200px', height: '50px', borderRadius: '20px', background: '#2D4353', color: '#F4F8FA', fontFamily: '"Space Grotesk"', fontSize: '20px', fontWeight: '700', border: 'none', cursor: 'pointer' }}
@@ -239,7 +239,7 @@ function VehicleList() {
 
             {modalType === 'details' && (
               <div style={{ display: 'flex', gap: '40px', borderBottom: '2px solid #ccc', marginBottom: '30px' }}>
-                {['adatlap', 'matricak', 'szerviz'].map(tab => (
+                {['adatlap', 'matrica', 'szerviz'].map(tab => (
                   <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: 'none', border: 'none', borderBottom: activeTab === tab ? '4px solid #1F5C88' : '4px solid transparent', paddingBottom: '10px', fontSize: '20px', fontFamily: '"Space Grotesk"', fontWeight: '700', color: activeTab === tab ? '#1F5C88' : '#888', cursor: 'pointer', textTransform: 'capitalize' }}>
                     {tab}
                   </button>
@@ -318,13 +318,13 @@ function VehicleList() {
               </div>
             )}
 
-            {modalType === 'details' && activeTab === 'matricak' && (
+            {modalType === 'details' && activeTab === 'matrica' && (
               <div>
                 <form onSubmit={handleAddSticker} style={{ display: 'flex', gap: '10px', marginBottom: '30px', alignItems: 'flex-end' }}>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                     <label style={{ fontFamily: '"Space Grotesk"', fontSize: '14px' }}>Típus</label>
                     <select value={stickerData.sticker_type_id} onChange={(e) => setStickerData({...stickerData, sticker_type_id: e.target.value})} style={{ height: '40px', borderRadius: '10px', border: '1px solid #ccc' }} required>
-                      <option value="">Válassz...</option>
+                      <option value="">Típus kiválasztása</option>
                       {stickerTypes.map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
                     </select>
                   </div>
@@ -352,8 +352,8 @@ function VehicleList() {
               <div>
                 <form onSubmit={handleAddService} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '30px' }}>
                   <label style={{ fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: 'bold' }}>Új hiba/esemény jelentése:</label>
-                  <textarea value={serviceData.description} onChange={(e) => setServiceData({description: e.target.value})} rows="3" style={{ borderRadius: '10px', border: '1px solid #ccc', padding: '10px', fontFamily: '"Space Grotesk"', fontSize: '16px' }} placeholder="Írd le a problémát..." required />
-                  <button type="submit" style={{ height: '50px', background: 'orange', color: 'white', border: 'none', borderRadius: '10px', fontFamily: '"Space Grotesk"', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer' }}>HIBABEJELENTÉS KÜLDÉSE</button>
+                  <textarea value={serviceData.description} onChange={(e) => setServiceData({description: e.target.value})} rows="3" style={{ borderRadius: '10px', border: '1px solid #ccc', padding: '10px', fontFamily: '"Space Grotesk"', fontSize: '16px' }} placeholder="Kérjük írja le a hibát/eseményt..." required />
+                  <button type="submit" style={{ height: '50px', background: 'orange', color: 'white', border: 'none', borderRadius: '10px', fontFamily: '"Space Grotesk"', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer' }}>HIBA/ESEMÉNY BEJELENTÉSE</button>
                 </form>
               </div>
             )}

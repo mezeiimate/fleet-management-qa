@@ -118,15 +118,15 @@ function Dashboard() {
             <h2 style={{ fontFamily: '"Space Grotesk"', color: '#172936', fontSize: '22px', margin: 0, fontWeight: 'bold' }}>Megoszlás (kategória)</h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
               <div style={{ padding: '15px', background: '#F4F8FA', borderRadius: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontFamily: '"Space Grotesk"', fontWeight: 'bold', color: '#1F5C88' }}>D1 (Személy)</span>
+                <span style={{ fontFamily: '"Space Grotesk"', fontWeight: 'bold', color: '#1F5C88' }}>D1 (Személyautó)</span>
                 <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#172936' }}>{stats.d1} db</span>
               </div>
               <div style={{ padding: '15px', background: '#F4F8FA', borderRadius: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontFamily: '"Space Grotesk"', fontWeight: 'bold', color: '#1F5C88' }}>D2 (Teher)</span>
+                <span style={{ fontFamily: '"Space Grotesk"', fontWeight: 'bold', color: '#1F5C88' }}>D2 (Teher / Kisbusz)</span>
                 <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#172936' }}>{stats.d2} db</span>
               </div>
               <div style={{ padding: '15px', background: '#F4F8FA', borderRadius: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontFamily: '"Space Grotesk"', fontWeight: 'bold', color: '#1F5C88' }}>D1m (Motor)</span>
+                <span style={{ fontFamily: '"Space Grotesk"', fontWeight: 'bold', color: '#1F5C88' }}>D1m (Motorkerékpár)</span>
                 <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#172936' }}>{stats.d1m} db</span>
               </div>
               <div style={{ padding: '15px', background: '#F4F8FA', borderRadius: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
