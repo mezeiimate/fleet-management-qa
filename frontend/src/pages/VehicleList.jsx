@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
+// --- ÚJ SOR: Környezeti változó beolvasása ---
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 function VehicleList() {
   const [vehicles, setVehicles] = useState([]);
   const [stickerTypes, setStickerTypes] = useState([]);
-  const [users, setUsers] = useState([]); // BEKERÜLT A FELHASZNÁLÓK ÁLLAPOT
+  const [users, setUsers] = useState([]); 
   const [loading, setLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -23,11 +26,11 @@ function VehicleList() {
 
   const fetchData = async () => {
     try {
-      // PÁRHUZAMOSAN LEKÉRJÜK A JÁRMŰVEKET, MATRICÁKAT ÉS A SOFŐRÖKET
+      // API_URL használata
       const [vehRes, stickRes, usersRes] = await Promise.all([
-        axios.get(`http://localhost:5000/api/vehicles-full?includeArchived=${showArchived}`),
-        axios.get('http://localhost:5000/api/sticker-types'),
-        axios.get('http://localhost:5000/api/users')
+        axios.get(`${API_URL}/api/vehicles-full?includeArchived=${showArchived}`),
+        axios.get(`${API_URL}/api/sticker-types`),
+        axios.get(`${API_URL}/api/users`)
       ]);
       setVehicles(vehRes.data);
       setStickerTypes(stickRes.data);
@@ -55,7 +58,7 @@ function VehicleList() {
       setFormData({ 
         license_plate: '', brand: '', model: '', year_of_manufacture: '', 
         vin: '', current_km: '', status: 'Aktív', technical_exam_until: formattedDefaultExam,
-        category: 'D1', fuel_type: 'Benzin', user_id: '' // user_id HOZZÁADVA
+        category: 'D1', fuel_type: 'Benzin', user_id: '' 
       });
     } else if (vehicle) {
       const formattedDate = vehicle.technical_exam_until ? new Date(vehicle.technical_exam_until).toISOString().split('T')[0] : '';
@@ -104,14 +107,14 @@ function VehicleList() {
     }
 
     try {
-      // Ha a user_id üres string, csináljunk belőle null-t az adatbázis számára
       const finalUserId = formData.user_id === '' ? null : formData.user_id;
       const dataToSave = { ...formData, license_plate: formattedPlate, vin: formData.vin.toUpperCase(), user_id: finalUserId };
       
+      // API_URL használata
       if (modalType === 'new') {
-        await axios.post('http://localhost:5000/api/vehicles', dataToSave);
+        await axios.post(`${API_URL}/api/vehicles`, dataToSave);
       } else {
-        await axios.put(`http://localhost:5000/api/vehicles/${selectedVehicle.id}`, dataToSave);
+        await axios.put(`${API_URL}/api/vehicles/${selectedVehicle.id}`, dataToSave);
       }
       fetchData();
       closeModal();
@@ -121,7 +124,8 @@ function VehicleList() {
   const handleDeleteVehicle = async (id) => {
     if (window.confirm('Biztosan archiválni akarod ezt a járművet?')) {
       try {
-        await axios.delete(`http://localhost:5000/api/vehicles/${id}`);
+        // API_URL használata
+        await axios.delete(`${API_URL}/api/vehicles/${id}`);
         fetchData();
         closeModal();
       } catch (err) { alert('Hiba a törléskor!'); }
@@ -131,10 +135,11 @@ function VehicleList() {
   const handleAddSticker = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:5000/api/stickers', { ...stickerData, vehicle_id: selectedVehicle.id });
+      // API_URL használata
+      await axios.post(`${API_URL}/api/stickers`, { ...stickerData, vehicle_id: selectedVehicle.id });
       setStickerData({ sticker_type_id: '', valid_until: '', purchase_price: 0 });
       fetchData(); 
-      const res = await axios.get(`http://localhost:5000/api/vehicles-full?includeArchived=${showArchived}`);
+      const res = await axios.get(`${API_URL}/api/vehicles-full?includeArchived=${showArchived}`);
       setVehicles(res.data);
       setSelectedVehicle(res.data.find(v => v.id === selectedVehicle.id));
     } catch (err) { console.error(err); }
@@ -142,9 +147,10 @@ function VehicleList() {
 
   const handleDeleteSticker = async (id) => {
     if (window.confirm('Biztosan törlöd a matricát?')) {
-      await axios.delete(`http://localhost:5000/api/stickers/${id}`);
+      // API_URL használata
+      await axios.delete(`${API_URL}/api/stickers/${id}`);
       fetchData();
-      const res = await axios.get(`http://localhost:5000/api/vehicles-full?includeArchived=${showArchived}`);
+      const res = await axios.get(`${API_URL}/api/vehicles-full?includeArchived=${showArchived}`);
       setVehicles(res.data);
       setSelectedVehicle(res.data.find(v => v.id === selectedVehicle.id));
     }
@@ -153,7 +159,8 @@ function VehicleList() {
   const handleAddService = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:5000/api/service-logs', { vehicle_id: selectedVehicle.id, description: serviceData.description });
+      // API_URL használata
+      await axios.post(`${API_URL}/api/service-logs`, { vehicle_id: selectedVehicle.id, description: serviceData.description });
       setServiceData({ description: '' });
       fetchData();
       alert('Hiba bejelentve! A jármű státusza Szervizben lett.');

@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 function Dashboard() {
   const [stats, setStats] = useState(null);
   const [alerts, setAlerts] = useState([]);
@@ -10,8 +12,8 @@ function Dashboard() {
     const fetchDashboardData = async () => {
       try {
         const [statsRes, alertsRes] = await Promise.all([
-          axios.get('http://localhost:5000/api/stats'),
-          axios.get('http://localhost:5000/api/alerts')
+          axios.get(`${API_URL}/api/stats`),
+          axios.get(`${API_URL}/api/alerts`)
         ]);
         setStats(statsRes.data);
         setAlerts(alertsRes.data);

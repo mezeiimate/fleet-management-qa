@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import logoImage from '../assets/FFR_logo.svg';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const Login = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -10,7 +12,7 @@ const Login = ({ onLogin }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post('http://localhost:5000/api/login', { username, password });
+      const res = await axios.post(`${API_URL}/api/login`, { username, password });
       onLogin(res.data.user);
     } catch (err) {
       setError('Hibás felhasználónév vagy jelszó!');

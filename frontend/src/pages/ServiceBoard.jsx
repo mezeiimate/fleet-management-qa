@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 function ServiceBoard() {
   const [logs, setLogs] = useState([]);
   const [vehicles, setVehicles] = useState([]);
@@ -20,8 +22,8 @@ function ServiceBoard() {
   const fetchData = async () => {
     try {
       const [logsRes, vehRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/service-logs'),
-        axios.get('http://localhost:5000/api/vehicles-full?includeArchived=true')
+        axios.get(`${API_URL}/api/service-logs`),
+        axios.get(`${API_URL}/api/vehicles-full?includeArchived=true`)
       ]);
       setLogs(logsRes.data);
       setVehicles(vehRes.data);
@@ -50,7 +52,7 @@ function ServiceBoard() {
   const handleResolve = async (e) => {
     e.preventDefault();
     try {
-      await axios.patch(`http://localhost:5000/api/service-logs/${selectedLog.id}`, { 
+      await axios.patch(`${API_URL}/api/service-logs/${selectedLog.id}`, { 
         cost: parseInt(repairCost) || 0 
       });
       fetchData(); 
@@ -65,9 +67,9 @@ function ServiceBoard() {
     if (window.confirm(`Biztosan törlöd ezt a tételt? Ez a művelet nem visszavonható!`)) {
       try {
         if (isServiceOrEvent) {
-          await axios.delete(`http://localhost:5000/api/service-logs/${id}`);
+          await axios.delete(`${API_URL}/api/service-logs/${id}`);
         } else {
-          await axios.delete(`http://localhost:5000/api/stickers/${id}`);
+          await axios.delete(`${API_URL}/api/stickers/${id}`);
         }
         fetchData();
       } catch (err) { alert('Hiba a törléskor!'); }

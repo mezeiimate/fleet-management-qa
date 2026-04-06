@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 function UserManagement({ loggedInUser }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,7 +20,7 @@ function UserManagement({ loggedInUser }) {
 
   const fetchUsers = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/users');
+      const res = await axios.get(`${API_URL}/api/users`);
       setUsers(res.data);
     } catch (err) {
       console.error("Hiba a felhasználók betöltésekor", err);
@@ -58,9 +60,9 @@ function UserManagement({ loggedInUser }) {
     try {
       if (modalType === 'new') {
         if (!formData.password) return setFormError('Az új felhasználóhoz kötelező jelszót megadni!');
-        await axios.post('http://localhost:5000/api/users', formData);
+        await axios.post(`${API_URL}/api/users`, formData);
       } else if (modalType === 'edit' || modalType === 'profile') {
-        await axios.put(`http://localhost:5000/api/users/${selectedUser.id}`, {
+        await axios.put(`${API_URL}/api/users/${selectedUser.id}`, {
           username: formData.username,
           name: formData.name,
           role: formData.role
@@ -70,7 +72,7 @@ function UserManagement({ loggedInUser }) {
         }
       } else if (modalType === 'password') {
         if (formData.password.length < 4) return setFormError('A jelszónak legalább 4 karakternek kell lennie!');
-        await axios.patch(`http://localhost:5000/api/users/${selectedUser.id}/password`, { password: formData.password });
+        await axios.patch(`${API_URL}/api/users/${selectedUser.id}/password`, { password: formData.password });
         alert('Jelszó sikeresen módosítva!');
       }
       
@@ -87,7 +89,7 @@ function UserManagement({ loggedInUser }) {
     }
     if (window.confirm('Biztosan törlöd ezt a felhasználót? Ha van hozzárendelve jármű, a törlés nem fog sikerülni.')) {
       try {
-        await axios.delete(`http://localhost:5000/api/users/${id}`);
+        await axios.delete(`${API_URL}/api/users/${id}`);
         fetchUsers();
       } catch (err) { alert(err.response?.data?.error || 'Hiba a törléskor!'); }
     }

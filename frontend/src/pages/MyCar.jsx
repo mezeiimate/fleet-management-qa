@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import logoImage from '../assets/FFR_logo.svg'; 
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 function MyCar({ user, onLogout }) {
   const [vehicles, setVehicles] = useState([]);
   const [activeVehicleIndex, setActiveVehicleIndex] = useState(0);
@@ -18,7 +20,7 @@ function MyCar({ user, onLogout }) {
 
   const fetchMyVehicles = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/my-vehicles/${user.id}`);
+      const res = await axios.get(`${API_URL}/api/my-vehicles/${user.id}`);
       setVehicles(res.data);
     } catch (err) {
       console.error("Hiba", err);
@@ -36,10 +38,10 @@ function MyCar({ user, onLogout }) {
     e.preventDefault();
     try {
       if (modalType === 'issue') {
-        await axios.post('http://localhost:5000/api/service-logs', { vehicle_id: activeVehicle.id, description: issueText });
+        await axios.post(`${API_URL}/api/service-logs`, { vehicle_id: activeVehicle.id, description: issueText });
         alert('Hiba bejelentve! Kérlek, egyeztess a diszpécserrel.');
       } else if (modalType === 'km') {
-        await axios.post('http://localhost:5000/api/update-km', { vehicle_id: activeVehicle.id, new_km: newKm });
+        await axios.post(`${API_URL}/api/update-km`, { vehicle_id: activeVehicle.id, new_km: newKm });
         alert('Kilométeróra frissítve!');
       }
       setModalType('');
@@ -62,7 +64,7 @@ function MyCar({ user, onLogout }) {
     }
     
     try {
-      await axios.patch(`http://localhost:5000/api/users/${user.id}/password`, { password: newPassword });
+      await axios.patch(`${API_URL}/api/users/${user.id}/password`, { password: newPassword });
       alert('A jelszavad sikeresen frissült!');
       setModalType('');
       setNewPassword('');

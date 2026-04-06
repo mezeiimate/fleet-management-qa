@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 function StickerSettings() {
   const [stickerTypes, setStickerTypes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,7 +19,7 @@ function StickerSettings() {
 
   const fetchStickerTypes = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/sticker-types');
+      const res = await axios.get(`${API_URL}/api/sticker-types`);
       setStickerTypes(res.data);
     } catch (err) { 
         console.error("Hiba az adatok betöltésekor:", err); 
@@ -46,9 +48,9 @@ function StickerSettings() {
     e.preventDefault();
     try {
       if (modalMode === 'new') {
-        await axios.post('http://localhost:5000/api/sticker-types', formData);
+        await axios.post(`${API_URL}/api/sticker-types`, formData);
       } else {
-        await axios.put(`http://localhost:5000/api/sticker-types/${selectedSticker.id}`, formData);
+        await axios.put(`${API_URL}/api/sticker-types/${selectedSticker.id}`, formData);
       }
       fetchStickerTypes();
       closeModal();
@@ -58,7 +60,7 @@ function StickerSettings() {
   const handleDelete = async (id) => {
     if (window.confirm('Biztosan törlöd ezt a matrica típust?')) {
       try {
-        await axios.delete(`http://localhost:5000/api/sticker-types/${id}`);
+        await axios.delete(`${API_URL}/api/sticker-types/${id}`);
         fetchStickerTypes();
       } catch (err) { alert('Hiba: A matrica típus valószínűleg már használatban van!'); }
     }
