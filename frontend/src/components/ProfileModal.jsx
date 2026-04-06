@@ -3,99 +3,89 @@ import axios from 'axios';
 
 export default function ProfileModal({ user, isOpen, onClose }) {
   const dialogRef = useRef(null);
-  
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
 
-  // Figyeljük, hogy mikor kell megnyitni vagy bezárni
   useEffect(() => {
     if (isOpen) {
       dialogRef.current?.showModal();
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setMessage('');
     } else {
       dialogRef.current?.close();
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); setMessage('');
     }
   }, [isOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage('');
-    setIsError(false);
-
     if (newPassword !== confirmPassword) {
-      setIsError(true);
-      setMessage('Az új jelszavak nem egyeznek!');
-      return;
+      setIsError(true); setMessage('Az új jelszavak nem egyeznek!'); return;
     }
-
     try {
-      await axios.patch(`http://localhost:5000/api/users/${user.id}/password`, {
-        currentPassword,
-        newPassword
-      });
-      setIsError(false);
-      setMessage('Jelszó sikeresen megváltoztatva!');
-      
-      // Sikeres mentés után 1.5 másodperccel bezárjuk az ablakot
-      setTimeout(() => {
-        onClose();
-      }, 1500);
+      await axios.patch(`http://localhost:5000/api/users/${user.id}/password`, { currentPassword, newPassword });
+      setIsError(false); setMessage('Jelszó sikeresen megváltoztatva!');
+      setTimeout(() => onClose(), 1500);
     } catch (err) {
-      setIsError(true);
-      setMessage(err.response?.data?.error || 'Hiba a jelszó módosításakor.');
+      setIsError(true); setMessage(err.response?.data?.error || 'Hiba történt.');
     }
   };
 
   return (
-    <dialog ref={dialogRef} onCancel={onClose} className="bg-transparent p-0 w-full max-w-sm backdrop:bg-slate-900/60 backdrop:backdrop-blur-sm rounded-[2rem] shadow-2xl open:flex flex-col">
-      <div className="bg-white w-full h-full flex flex-col">
-        <div className="bg-slate-800 p-6 border-b border-slate-700 flex justify-between items-center">
-          <h2 className="text-xl font-black text-white">Profil & Jelszó</h2>
-          <button type="button" onClick={onClose} className="text-slate-400 font-bold text-xl hover:text-red-400 transition-colors">✕</button>
+    <dialog 
+      ref={dialogRef} 
+      onCancel={onClose} 
+      className="p-0 rounded-3xl shadow-2xl border border-slate-200 w-full max-w-[440px] bg-white backdrop:bg-slate-900/40 open:flex flex-col m-auto"
+    >
+      <div className="bg-white flex flex-col w-full rounded-3xl">
+        
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-3xl">
+          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <span className="material-symbols-outlined text-blue-600">manage_accounts</span>
+            Profil beállítások
+          </h2>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors">
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="flex items-center gap-4 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-             <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center font-black text-slate-500 text-lg">
+        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+          <div className="flex items-center gap-4 mb-2">
+             <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center font-black text-blue-600 text-xl">
                 {user?.name?.charAt(0)?.toUpperCase()}
              </div>
              <div>
-                <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">{user?.role === 'driver' ? 'Sofőr' : user?.role}</p>
-                <p className="text-sm font-bold text-slate-800 leading-tight">{user?.name}</p>
-                <p className="text-xs font-medium text-slate-400">@{user?.username}</p>
+                <p className="text-lg font-black text-slate-900 leading-tight">{user?.name}</p>
+                <p className="text-sm font-medium text-slate-500">@{user?.username}</p>
              </div>
           </div>
 
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Jelszó módosítása</h3>
-
-          {message && (
-            <div className={`p-3 rounded-xl text-sm font-bold ${isError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-              {isError ? '⚠️ ' : '✅ '} {message}
+          <div className="space-y-4">
+            {message && (
+              <div className={`p-4 rounded-xl text-sm font-bold flex items-center gap-2 ${isError ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-green-50 text-green-600 border border-green-100'}`}>
+                <span className="material-symbols-outlined text-[18px]">{isError ? 'error' : 'check_circle'}</span> {message}
+              </div>
+            )}
+            
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5">Jelenlegi jelszó</label>
+              <input type="password" required value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="w-full p-3.5 bg-white border border-slate-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none text-slate-900 transition-all" />
             </div>
-          )}
-
-          <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Jelenlegi Jelszó</label>
-            <input type="password" required value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
-          </div>
-          <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Új Jelszó</label>
-            <input type="password" required value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
-          </div>
-          <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Új Jelszó Megerősítése</label>
-            <input type="password" required value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
+            
+            <div className="pt-2 border-t border-slate-100">
+              <label className="block text-xs font-bold text-slate-600 mb-1.5">Új jelszó</label>
+              <input type="password" required value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-3.5 bg-white border border-slate-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none text-slate-900 transition-all" />
+            </div>
+            
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5">Új jelszó megerősítése</label>
+              <input type="password" required value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full p-3.5 bg-white border border-slate-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none text-slate-900 transition-all" />
+            </div>
           </div>
 
-          <button type="submit" className="w-full bg-slate-800 hover:bg-slate-900 text-white font-black py-4 rounded-xl mt-4 shadow-lg transition-colors">
-            JELSZÓ MENTÉSE
+          <button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-xl shadow-md hover:shadow-lg transition-all mt-2">
+            Módosítások mentése
           </button>
         </form>
       </div>
