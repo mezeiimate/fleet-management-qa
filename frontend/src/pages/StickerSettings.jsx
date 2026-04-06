@@ -1,205 +1,207 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
-const StickerSettings = () => {
-  const [stickers, setStickers] = useState([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    price_category: 'D1',
-    price: ''
-  });
+function StickerSettings() {
+  const [stickerTypes, setStickerTypes] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Szűrők állapotai
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [nameFilter, setNameFilter] = useState(''); // ÚJ: Szöveges kereső
 
-  const fetchStickers = async () => {
+  // Modál állapotok
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState('new');
+  const [selectedSticker, setSelectedSticker] = useState(null);
+  const [formData, setFormData] = useState({ name: '', price_category: 'D1', price: 0 });
+
+  const fetchStickerTypes = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/sticker-types');
-      setStickers(response.data);
-    } catch (error) {
-      console.error("Hiba a matricák betöltésekor", error);
-    } finally {
-      setLoading(false);
-    }
+      const res = await axios.get('http://localhost:5000/api/sticker-types');
+      setStickerTypes(res.data);
+    } catch (err) { console.error("Hiba", err); } 
+    finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    fetchStickers();
-  }, []);
+  useEffect(() => { fetchStickerTypes(); }, []);
 
-  const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const openModal = (sticker = null) => {
-    if (sticker) {
-      setEditingId(sticker.id);
-      setFormData({
-        name: sticker.name,
-        price_category: sticker.price_category,
-        price: sticker.price
-      });
+  const openModal = (mode, sticker = null) => {
+    setModalMode(mode);
+    if (mode === 'edit' && sticker) {
+      setSelectedSticker(sticker);
+      setFormData({ name: sticker.name, price_category: sticker.price_category, price: sticker.price || 0 });
     } else {
-      setEditingId(null);
-      setFormData({ name: '', price_category: 'D1', price: '' });
+      setSelectedSticker(null);
+      setFormData({ name: '', price_category: 'D1', price: 0 });
     }
     setIsModalOpen(true);
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingId(null);
-  };
+  const closeModal = () => { setIsModalOpen(false); };
 
-  const handleSubmit = async (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     try {
-      if (editingId) {
-        await axios.put(`http://localhost:5000/api/sticker-types/${editingId}`, formData);
-      } else {
+      if (modalMode === 'new') {
         await axios.post('http://localhost:5000/api/sticker-types', formData);
+      } else {
+        await axios.put(`http://localhost:5000/api/sticker-types/${selectedSticker.id}`, formData);
       }
-      fetchStickers();
+      fetchStickerTypes();
       closeModal();
-    } catch (error) {
-      alert("Hiba történt a mentés során.");
-    }
+    } catch (err) { alert('Hiba történt mentéskor!'); }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Biztosan törölni szeretnéd ezt a matrica típust?')) {
+    if (window.confirm('Biztosan törlöd ezt a matrica típust? (Ha autókhoz van rendelve, a törlés sikertelen lesz.)')) {
       try {
         await axios.delete(`http://localhost:5000/api/sticker-types/${id}`);
-        fetchStickers();
-      } catch (error) {
-        // A backend hibaüzenetének megjelenítése (pl. ha már van autóhoz rendelve)
-        alert(error.response?.data?.error || "Hiba történt a törlés során.");
-      }
+        fetchStickerTypes();
+      } catch (err) { alert(err.response?.data?.error || 'Hiba a törléskor!'); }
     }
   };
 
-  if (loading) return <div className="p-8 text-center font-['Space_Grotesk'] text-[#2D4353]">Betöltés...</div>;
+  // KOMPLEX SZŰRÉSI LOGIKA: Név + Kategória egyszerre
+  const filteredStickers = stickerTypes.filter(s => {
+    const matchesCategory = categoryFilter === 'all' || s.price_category === categoryFilter;
+    const matchesName = s.name.toLowerCase().includes(nameFilter.toLowerCase());
+    return matchesCategory && matchesName;
+  });
+
+  // Kategória stílusok a kártyákon belül
+  const getCategoryStyle = (cat) => {
+    switch(cat) {
+      case 'D1M': return { bg: 'rgba(168, 85, 247, 0.1)', color: '#a855f7', border: '#a855f7' };
+      case 'D1': return { bg: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: '#3b82f6' };
+      case 'D2': return { bg: 'rgba(249, 115, 22, 0.1)', color: '#f97316', border: '#f97316' };
+      case 'U': return { bg: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '#10b981' };
+      default: return { bg: 'rgba(156, 163, 175, 0.1)', color: '#6b7280', border: '#6b7280' };
+    }
+  };
+
+  if (loading) return <div style={{ fontFamily: '"Space Grotesk"', fontSize: '24px', textAlign: 'center', marginTop: '50px' }}>Adatok betöltése...</div>;
 
   return (
-    <div className="p-8 font-['Space_Grotesk'] w-full">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-[#2D4353]">Matrica Típusok és Árak</h2>
-        <button 
-          onClick={() => openModal()}
-          className="bg-[#2D4353] text-[#F4F8FA] px-6 py-3 rounded hover:bg-opacity-90 transition-colors"
-        >
-          + Új Matrica
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', paddingBottom: '100px' }}>
+      
+      {/* FEJLÉC */}
+      <div style={{ display: 'flex', width: '1320px', height: '100px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+        <div style={{ color: '#000', fontFamily: '"Space Grotesk"', fontSize: '36px' }}>Matrica Törzsadatok & Árak</div>
+        <button onClick={() => openModal('new')} style={{ padding: '0 30px', height: '50px', borderRadius: '20px', background: '#2D4353', color: '#F4F8FA', fontFamily: '"Space Grotesk"', fontSize: '18px', fontWeight: '700', border: 'none', cursor: 'pointer' }}>
+          + ÚJ TÍPUS FELVÉTELE
         </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-[#2D4353] text-[#F4F8FA]">
-              <th className="p-4 border-b border-[#2D4353]">Megnevezés</th>
-              <th className="p-4 border-b border-[#2D4353]">Kategória</th>
-              <th className="p-4 border-b border-[#2D4353]">Ár (Ft)</th>
-              <th className="p-4 border-b border-[#2D4353] text-right">Műveletek</th>
-            </tr>
-          </thead>
-          <tbody>
-            {stickers.map((sticker) => (
-              <tr key={sticker.id} className="hover:bg-gray-50 border-b border-gray-200">
-                <td className="p-4 text-[#2D4353] font-medium">{sticker.name}</td>
-                <td className="p-4 text-[#2D4353]">{sticker.price_category}</td>
-                <td className="p-4 text-[#2D4353]">{sticker.price.toLocaleString('hu-HU')} Ft</td>
-                <td className="p-4 text-right">
-                  <button 
-                    onClick={() => openModal(sticker)}
-                    className="text-blue-600 hover:text-blue-800 mr-4 font-medium"
-                  >
-                    Szerkesztés
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(sticker.id)}
-                    className="text-red-600 hover:text-red-800 font-medium"
-                  >
-                    Törlés
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {stickers.length === 0 && (
-              <tr>
-                <td colSpan="4" className="p-4 text-center text-gray-500">Nincsenek rögzített matricák.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      {/* KOMPLEX SZŰRŐ SÁV (Megegyezik a ServiceBoard dizájnjával) */}
+      <div style={{ display: 'flex', width: '1320px', gap: '15px', alignItems: 'center', marginBottom: '40px', background: '#2D4353', padding: '15px 30px', borderRadius: '20px', boxSizing: 'border-box' }}>
+        
+        {/* Szöveges kereső */}
+        <input 
+          type="text" 
+          placeholder="Keresés matrica neve alapján (pl. 'éves', 'Pest')..." 
+          value={nameFilter} 
+          onChange={(e) => setNameFilter(e.target.value)} 
+          style={{ flex: 1, height: '40px', borderRadius: '10px', border: 'none', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '16px' }} 
+        />
+        
+        {/* Kategória választó */}
+        <select 
+          value={categoryFilter} 
+          onChange={(e) => setCategoryFilter(e.target.value)} 
+          style={{ width: '220px', height: '40px', borderRadius: '10px', border: 'none', padding: '0 10px', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: 'bold' }}
+        >
+          <option value="all">Minden kategória</option>
+          <option value="D1M">D1M (Motorkerékpár)</option>
+          <option value="D1">D1 (Személyautó)</option>
+          <option value="D2">D2 (Teher / Kisbusz)</option>
+          <option value="U">U (Utánfutó)</option>
+        </select>
+
       </div>
 
-      {/* MODAL / FELUGRÓ ABLAK MENTÉSHEZ */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
-            <h3 className="text-2xl font-bold text-[#2D4353] mb-6">
-              {editingId ? 'Matrica Szerkesztése' : 'Új Matrica Hozzáadása'}
-            </h3>
-            <form onSubmit={handleSubmit}>
-              <div className="mb-4">
-                <label className="block text-[#2D4353] mb-2 font-medium">Megnevezés (pl. Éves Pest vármegyei)</label>
-                <input 
-                  type="text" 
-                  name="name" 
-                  value={formData.name} 
-                  onChange={handleInputChange} 
-                  required
-                  className="w-full border border-gray-300 p-3 rounded focus:outline-none focus:border-[#2D4353]"
-                />
+      {/* KÁRTYA LISTA */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '1320px' }}>
+        {filteredStickers.map((s) => {
+          const style = getCategoryStyle(s.price_category);
+          return (
+            <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: '#FFFFFF', border: '2px solid #2D4353', borderRadius: '20px', padding: '20px 30px', boxSizing: 'border-box', position: 'relative', overflow: 'hidden' }}>
+              
+              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '8px', background: style.border }}></div>
+
+              <div style={{ flex: 1, paddingLeft: '15px' }}>
+                <span style={{ color: style.color, fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: '700', padding: '8px 15px', background: style.bg, borderRadius: '12px' }}>
+                  {s.price_category}
+                </span>
               </div>
-              <div className="mb-4">
-                <label className="block text-[#2D4353] mb-2 font-medium">Kategória</label>
-                <select 
-                  name="price_category" 
-                  value={formData.price_category} 
-                  onChange={handleInputChange}
-                  className="w-full border border-gray-300 p-3 rounded focus:outline-none focus:border-[#2D4353]"
-                >
-                  <option value="D1">D1</option>
-                  <option value="D1m">D1m</option>
-                  <option value="D2">D2</option>
-                  <option value="B2">B2</option>
-                  <option value="U">U</option>
+              
+              <div style={{ flex: 2, color: '#172936', fontFamily: '"Space Grotesk"', fontSize: '22px', fontWeight: '700' }}>
+                {s.name}
+              </div>
+
+              <div style={{ flex: 1, color: '#1F5C88', fontFamily: '"Space Grotesk"', fontSize: '26px', fontWeight: '700' }}>
+                {s.price ? s.price.toLocaleString('hu-HU') : '0'} Ft
+              </div>
+
+              <div style={{ flex: 1, display: 'flex', gap: '15px', justifyContent: 'flex-end' }}>
+                <button onClick={() => openModal('edit', s)} style={{ padding: '0 20px', height: '40px', borderRadius: '12px', background: '#F4F8FA', border: 'none', color: '#1F5C88', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: '700', cursor: 'pointer' }}>
+                  Szerkesztés
+                </button>
+                <button onClick={() => handleDelete(s.id)} style={{ padding: '0 20px', height: '40px', borderRadius: '12px', background: '#fee2e2', border: 'none', color: '#ef4444', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: '700', cursor: 'pointer' }}>
+                  Törlés
+                </button>
+              </div>
+            </div>
+          )
+        })}
+
+        {/* ÜRES ÁLLAPOT */}
+        {filteredStickers.length === 0 && (
+          <div style={{ width: '100%', boxSizing: 'border-box', background: '#FFFFFF', border: '2px dashed #2D4353', borderRadius: '20px', padding: '50px', textAlign: 'center', fontFamily: '"Space Grotesk"', fontSize: '20px', color: '#888' }}>
+            Nincs a szűrésnek megfelelő matrica típus.
+          </div>
+        )}
+      </div>
+
+      {/* MODÁL */}
+      {isModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(23, 41, 54, 0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div style={{ width: '500px', background: '#F4F8FA', borderRadius: '20px', padding: '40px', boxSizing: 'border-box', position: 'relative' }}>
+            <button onClick={closeModal} style={{ position: 'absolute', top: '15px', right: '25px', background: 'transparent', border: 'none', fontSize: '30px', color: '#172936', cursor: 'pointer', fontFamily: '"Space Grotesk"' }}>✕</button>
+            <h2 style={{ fontFamily: '"Space Grotesk"', color: '#172936', fontSize: '28px', marginTop: 0, marginBottom: '25px' }}>
+              {modalMode === 'new' ? 'Új Matrica Típus' : 'Matrica Szerkesztése'}
+            </h2>
+            
+            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <label style={{ fontFamily: '"Space Grotesk"', color: '#172936', fontSize: '16px', marginBottom: '8px', fontWeight: 'bold' }}>Járműkategória</label>
+                <select value={formData.price_category} onChange={(e) => setFormData({...formData, price_category: e.target.value})} style={{ height: '50px', borderRadius: '15px', border: '2px solid #1F5C88', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '18px', background: '#fff' }}>
+                  <option value="D1M">D1M (Motorkerékpár)</option>
+                  <option value="D1">D1 (Személyautó)</option>
+                  <option value="D2">D2 (Tehergépjármű / Kisbusz)</option>
+                  <option value="U">U (Utánfutó)</option>
                 </select>
               </div>
-              <div className="mb-6">
-                <label className="block text-[#2D4353] mb-2 font-medium">Ár (Ft)</label>
-                <input 
-                  type="number" 
-                  name="price" 
-                  value={formData.price} 
-                  onChange={handleInputChange} 
-                  required
-                  min="0"
-                  className="w-full border border-gray-300 p-3 rounded focus:outline-none focus:border-[#2D4353]"
-                />
+
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <label style={{ fontFamily: '"Space Grotesk"', color: '#172936', fontSize: '16px', marginBottom: '8px', fontWeight: 'bold' }}>Matrica Neve</label>
+                <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} placeholder="Pl. Éves Országos..." style={{ height: '50px', borderRadius: '15px', border: '2px solid #1F5C88', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '18px', background: '#fff' }} required />
               </div>
-              <div className="flex justify-end space-x-4">
-                <button 
-                  type="button" 
-                  onClick={closeModal}
-                  className="px-6 py-3 border border-gray-300 rounded text-gray-600 hover:bg-gray-100 transition-colors"
-                >
-                  Mégse
-                </button>
-                <button 
-                  type="submit"
-                  className="px-6 py-3 bg-[#2D4353] text-[#F4F8FA] rounded hover:bg-opacity-90 transition-colors"
-                >
-                  Mentés
-                </button>
+
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <label style={{ fontFamily: '"Space Grotesk"', color: '#172936', fontSize: '16px', marginBottom: '8px', fontWeight: 'bold' }}>Alapár (Bruttó Ft)</label>
+                <input type="number" min="0" value={formData.price} onChange={(e) => setFormData({...formData, price: parseInt(e.target.value) || 0})} style={{ height: '50px', borderRadius: '15px', border: '2px solid #1F5C88', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '20px', background: '#fff', color: '#1F5C88', fontWeight: 'bold' }} required />
               </div>
+
+              <button type="submit" style={{ marginTop: '10px', height: '50px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '15px', fontFamily: '"Space Grotesk"', fontSize: '18px', fontWeight: '700', cursor: 'pointer' }}>
+                MENTÉS
+              </button>
             </form>
           </div>
         </div>
       )}
     </div>
   );
-};
+}
 
 export default StickerSettings;
