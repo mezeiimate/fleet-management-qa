@@ -299,7 +299,7 @@ function ServiceBoard() {
 
       </div>
 
-      {/* --- KÖLTSÉG BEKÉRŐ MODÁL --- */}
+      {/* --- KÖLTSÉG BEKÉRŐ MODÁL ---- */}
       {isModalOpen && selectedLog && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(23, 41, 54, 0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
           <div style={{ width: '500px', background: '#F4F8FA', borderRadius: '20px', padding: '40px', boxSizing: 'border-box', position: 'relative' }}>

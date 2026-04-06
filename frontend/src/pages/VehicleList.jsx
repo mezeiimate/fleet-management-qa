@@ -313,8 +313,8 @@ function VehicleList() {
                 <p><strong>Márka és modell:</strong> {selectedVehicle.brand} {selectedVehicle.model}</p>
                 <p><strong>Évjárat:</strong> {selectedVehicle.year_of_manufacture}</p>
                 <p><strong>Alvázszám (VIN):</strong> {selectedVehicle.vin || '-'}</p>
-                <p><strong>Km óra állás:</strong> {selectedVehicle.current_km.toLocaleString('hu-HU')} km</p>
-                <p><strong>Műszaki érvényes:</strong> {selectedVehicle.technical_exam_until ? new Date(selectedVehicle.technical_exam_until).toLocaleDateString('hu-HU') : 'Nincs adat'}</p>
+                <p><strong>Km óra állása:</strong> {selectedVehicle.current_km.toLocaleString('hu-HU')} km</p>
+                <p><strong>Műszaki érvényessége:</strong> {selectedVehicle.technical_exam_until ? new Date(selectedVehicle.technical_exam_until).toLocaleDateString('hu-HU') : 'Nincs adat'}</p>
               </div>
             )}
 

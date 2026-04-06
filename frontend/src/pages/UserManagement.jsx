@@ -233,7 +233,7 @@ function UserManagement({ loggedInUser }) {
               )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
-                {/* ÚJ JELSZÓ GOMB KERÜLT A TÖRLÉS HELYÉRE A MODÁLBA */}
+                {/* ÚJ JELSZÓ GOMB KERÜLT A TÖRLÉS HELYÉRE A MODÁLBAa */}
                 {modalType === 'edit' ? (
                   <button type="button" onClick={() => openModal('password', selectedUser)} style={{ padding: '0 20px', height: '50px', background: 'transparent', color: '#1F5C88', border: '2px solid #1F5C88', borderRadius: '15px', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: '700', cursor: 'pointer' }}>ÚJ JELSZÓ</button>
                 ) : <div></div>}

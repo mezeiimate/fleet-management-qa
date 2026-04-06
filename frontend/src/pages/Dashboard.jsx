@@ -187,7 +187,7 @@ function Dashboard({ user }) {
                 <div style={{ width: '1273px', height: '30px', color: '#F4F8FA', fontFamily: '"Space Grotesk"', fontSize: '24px', fontWeight: '400' }}>
                   {alert.description}
                 </div>
-                {/* Második sor: Érvényesség szöveg és Dátum Kapszula */}
+                {/* Második sor: Érvényesség szöveg és Dátum Kapszulaa */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                   <div style={{ width: '160px', height: '30px', color: '#F4F8FA', fontFamily: '"Space Grotesk"', fontSize: '24px', fontWeight: '400' }}>
                     Érvényesség:

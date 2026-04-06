@@ -218,7 +218,7 @@ function MyCar({ user, onLogout }) {
                 <textarea rows="4" placeholder="Mi történt az autóval?" value={issueText} onChange={(e) => setIssueText(e.target.value)} style={{ borderRadius: '15px', border: '2px solid #ef4444', padding: '20px', fontSize: '18px', fontFamily: '"Space Grotesk"' }} required />
               )}
 
-              {/* JELSZÓ MODÁL */}
+              {/* JELSZÓ MODÁLl */}
               {modalType === 'password' && (
                 <>
                   <input type="password" placeholder="Új jelszó" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} style={{ height: '50px', borderRadius: '15px', border: '1px solid #172936', padding: '0 20px', fontSize: '18px', fontFamily: '"Space Grotesk"' }} required />

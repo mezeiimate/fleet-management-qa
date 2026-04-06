@@ -60,7 +60,7 @@ const Login = ({ onLogin }) => {
         </h1>
       </div>
 
-      {/* 2. BEJELENTKEZŐ FORM (a form kezdetéig kérted, de itt a teljes, működő fájl) */}
+      {/* 2. BEJELENTKEZŐ FORMm (a form kezdetéig kérted, de itt a teljes, működő fájl) */}
       <form 
         onSubmit={handleSubmit}
         className="flex flex-col"
