@@ -1,150 +1,205 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-function Settings({ onBack }) {
+const StickerSettings = () => {
   const [stickers, setStickers] = useState([]);
-  const [errorMessage, setErrorMessage] = useState('');
-  
-  const dialogRef = useRef(null);
-  const [isEditing, setIsEditing] = useState(false);
-  
-  // Módosított kezdőadatok: Név, Kategória, Ár
-  const initialFormData = { id: null, name: '', price_category: 'D1', price: '' };
-  const [formData, setFormData] = useState(initialFormData);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    price_category: 'D1',
+    price: ''
+  });
+  const [loading, setLoading] = useState(true);
 
   const fetchStickers = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/sticker-types');
-      setStickers(res.data);
-    } catch (err) { console.error(err); }
+      const response = await axios.get('http://localhost:5000/api/sticker-types');
+      setStickers(response.data);
+    } catch (error) {
+      console.error("Hiba a matricák betöltésekor", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchStickers(); }, []);
+  useEffect(() => {
+    fetchStickers();
+  }, []);
+
+  const handleInputChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
   const openModal = (sticker = null) => {
-    setErrorMessage('');
     if (sticker) {
-      setFormData({ id: sticker.id, name: sticker.name, price_category: sticker.price_category, price: sticker.price });
-      setIsEditing(true);
+      setEditingId(sticker.id);
+      setFormData({
+        name: sticker.name,
+        price_category: sticker.price_category,
+        price: sticker.price
+      });
     } else {
-      setFormData(initialFormData);
-      setIsEditing(false);
+      setEditingId(null);
+      setFormData({ name: '', price_category: 'D1', price: '' });
     }
-    dialogRef.current?.showModal();
+    setIsModalOpen(true);
   };
 
   const closeModal = () => {
-    dialogRef.current?.close();
-    setFormData(initialFormData);
+    setIsModalOpen(false);
+    setEditingId(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      if (isEditing) {
-        await axios.put(`http://localhost:5000/api/sticker-types/${formData.id}`, formData);
+      if (editingId) {
+        await axios.put(`http://localhost:5000/api/sticker-types/${editingId}`, formData);
       } else {
         await axios.post('http://localhost:5000/api/sticker-types', formData);
       }
-      closeModal();
       fetchStickers();
-    } catch (err) { setErrorMessage("Hiba történt a mentéskor."); }
-  };
-
-  const handleDelete = async (id, name) => {
-    if(window.confirm(`Biztosan törlöd a(z) "${name}" matricát? Ezzel az összes autóról is lekerül, amihez hozzá volt rendelve!`)) {
-      try {
-        await axios.delete(`http://localhost:5000/api/sticker-types/${id}`);
-        fetchStickers();
-      } catch (err) { alert("Hiba a törléskor."); }
+      closeModal();
+    } catch (error) {
+      alert("Hiba történt a mentés során.");
     }
   };
 
+  const handleDelete = async (id) => {
+    if (window.confirm('Biztosan törölni szeretnéd ezt a matrica típust?')) {
+      try {
+        await axios.delete(`http://localhost:5000/api/sticker-types/${id}`);
+        fetchStickers();
+      } catch (error) {
+        // A backend hibaüzenetének megjelenítése (pl. ha már van autóhoz rendelve)
+        alert(error.response?.data?.error || "Hiba történt a törlés során.");
+      }
+    }
+  };
+
+  if (loading) return <div className="p-8 text-center font-['Space_Grotesk'] text-[#2D4353]">Betöltés...</div>;
+
   return (
-    <div className="min-h-screen bg-[#f8fafc] relative pb-20">
-      <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
-        <button onClick={onBack} className="text-slate-500 font-bold hover:text-blue-600 transition-colors">← VISSZA</button>
-        <h1 className="text-xl font-black tracking-tight italic text-slate-800">RENDSZER <span className="text-emerald-600">BEÁLLÍTÁSOK</span></h1>
-        <button onClick={() => openModal()} className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-xl font-black text-xs shadow-lg">
-          + ÚJ MATRICA TÍPUS
+    <div className="p-8 font-['Space_Grotesk'] w-full">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-3xl font-bold text-[#2D4353]">Matrica Típusok és Árak</h2>
+        <button 
+          onClick={() => openModal()}
+          className="bg-[#2D4353] text-[#F4F8FA] px-6 py-3 rounded hover:bg-opacity-90 transition-colors"
+        >
+          + Új Matrica
         </button>
-      </nav>
+      </div>
 
-      <main className="max-w-4xl mx-auto p-8">
-        <h2 className="text-2xl font-black text-slate-800 mb-6">Autópálya Matricák Kezelése</h2>
-        
-        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b border-slate-100">
-              <tr>
-                <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest">Matrica Megnevezése</th>
-                <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Kategória</th>
-                <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Aktuális Ár</th>
-                <th className="p-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Műveletek</th>
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-[#2D4353] text-[#F4F8FA]">
+              <th className="p-4 border-b border-[#2D4353]">Megnevezés</th>
+              <th className="p-4 border-b border-[#2D4353]">Kategória</th>
+              <th className="p-4 border-b border-[#2D4353]">Ár (Ft)</th>
+              <th className="p-4 border-b border-[#2D4353] text-right">Műveletek</th>
+            </tr>
+          </thead>
+          <tbody>
+            {stickers.map((sticker) => (
+              <tr key={sticker.id} className="hover:bg-gray-50 border-b border-gray-200">
+                <td className="p-4 text-[#2D4353] font-medium">{sticker.name}</td>
+                <td className="p-4 text-[#2D4353]">{sticker.price_category}</td>
+                <td className="p-4 text-[#2D4353]">{sticker.price.toLocaleString('hu-HU')} Ft</td>
+                <td className="p-4 text-right">
+                  <button 
+                    onClick={() => openModal(sticker)}
+                    className="text-blue-600 hover:text-blue-800 mr-4 font-medium"
+                  >
+                    Szerkesztés
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(sticker.id)}
+                    className="text-red-600 hover:text-red-800 font-medium"
+                  >
+                    Törlés
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {stickers.map(st => (
-                <tr key={st.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                  <td className="p-4 font-bold text-slate-700">{st.name}</td>
-                  <td className="p-4 text-center">
-                    <span className="bg-slate-100 text-slate-600 font-black px-2 py-1 rounded border uppercase text-xs">{st.price_category || '-'}</span>
-                  </td>
-                  <td className="p-4 font-black text-emerald-600 text-right">
-                    {new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(st.price || 0)}
-                  </td>
-                  <td className="p-4 text-right space-x-3">
-                    <button onClick={() => openModal(st)} className="text-blue-400 hover:text-blue-600 font-bold">✏️</button>
-                    <button onClick={() => handleDelete(st.id, st.name)} className="text-red-400 hover:text-red-600 font-bold">🗑️</button>
-                  </td>
-                </tr>
-              ))}
-              {stickers.length === 0 && (
-                <tr><td colSpan="4" className="p-8 text-center text-slate-400 italic font-medium">Nincs rögzítve matricatípus.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </main>
+            ))}
+            {stickers.length === 0 && (
+              <tr>
+                <td colSpan="4" className="p-4 text-center text-gray-500">Nincsenek rögzített matricák.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
-      <dialog ref={dialogRef} onCancel={closeModal} className="bg-transparent p-0 w-full max-w-sm backdrop:bg-slate-900/60 backdrop:backdrop-blur-sm rounded-[2rem] shadow-2xl open:flex flex-col">
-        <div className="bg-white w-full h-full flex flex-col">
-          <div className="bg-emerald-50 p-6 border-b border-emerald-100 flex justify-between items-center">
-            <h2 className="text-xl font-black text-emerald-800">{isEditing ? 'Matrica Szerkesztése' : 'Új Matrica'}</h2>
-            <button type="button" onClick={closeModal} className="text-emerald-400 font-bold text-xl hover:text-emerald-600">✕</button>
-          </div>
-          
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            {errorMessage && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-bold">⚠️ {errorMessage}</div>}
-            
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Matrica Megnevezése *</label>
-              <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" placeholder="Pl.: Éves Pest megyei" />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Kategória *</label>
-                <select required value={formData.price_category} onChange={e => setFormData({...formData, price_category: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase">
-                  <option value="D1">D1 (Személyautó)</option>
-                  <option value="D2">D2 (Teher/Kisbusz)</option>
-                  <option value="U">U (Utánfutó)</option>
+      {/* MODAL / FELUGRÓ ABLAK MENTÉSHEZ */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+            <h3 className="text-2xl font-bold text-[#2D4353] mb-6">
+              {editingId ? 'Matrica Szerkesztése' : 'Új Matrica Hozzáadása'}
+            </h3>
+            <form onSubmit={handleSubmit}>
+              <div className="mb-4">
+                <label className="block text-[#2D4353] mb-2 font-medium">Megnevezés (pl. Éves Pest vármegyei)</label>
+                <input 
+                  type="text" 
+                  name="name" 
+                  value={formData.name} 
+                  onChange={handleInputChange} 
+                  required
+                  className="w-full border border-gray-300 p-3 rounded focus:outline-none focus:border-[#2D4353]"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-[#2D4353] mb-2 font-medium">Kategória</label>
+                <select 
+                  name="price_category" 
+                  value={formData.price_category} 
+                  onChange={handleInputChange}
+                  className="w-full border border-gray-300 p-3 rounded focus:outline-none focus:border-[#2D4353]"
+                >
+                  <option value="D1">D1</option>
+                  <option value="D1m">D1m</option>
+                  <option value="D2">D2</option>
+                  <option value="B2">B2</option>
+                  <option value="U">U</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Ár (HUF) *</label>
-                <input type="number" required value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" placeholder="Pl.: 6660" />
+              <div className="mb-6">
+                <label className="block text-[#2D4353] mb-2 font-medium">Ár (Ft)</label>
+                <input 
+                  type="number" 
+                  name="price" 
+                  value={formData.price} 
+                  onChange={handleInputChange} 
+                  required
+                  min="0"
+                  className="w-full border border-gray-300 p-3 rounded focus:outline-none focus:border-[#2D4353]"
+                />
               </div>
-            </div>
-
-            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl mt-4 shadow-lg transition-colors">
-              {isEditing ? 'MÓDOSÍTÁS MENTÉSE' : 'LÉTREHOZÁS'}
-            </button>
-          </form>
+              <div className="flex justify-end space-x-4">
+                <button 
+                  type="button" 
+                  onClick={closeModal}
+                  className="px-6 py-3 border border-gray-300 rounded text-gray-600 hover:bg-gray-100 transition-colors"
+                >
+                  Mégse
+                </button>
+                <button 
+                  type="submit"
+                  className="px-6 py-3 bg-[#2D4353] text-[#F4F8FA] rounded hover:bg-opacity-90 transition-colors"
+                >
+                  Mentés
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </dialog>
+      )}
     </div>
   );
-}
+};
 
-export default Settings;
+export default StickerSettings;

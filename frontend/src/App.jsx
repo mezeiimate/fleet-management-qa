@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import VehicleList from './pages/VehicleList';
 import UserManagement from './pages/UserManagement';
 import ServiceBoard from './pages/ServiceBoard';
+import StickerSettings from './pages/StickerSettings';
 import MyCar from './pages/MyCar';
 import logoImage from './assets/FFR_logo.svg'; 
 
@@ -75,7 +76,7 @@ function App() {
           <MenuButton title="Vezérlőpult" />
           <MenuButton title="Járművek" />
           <MenuButton title="Szerviznaptár" />
-          <MenuButton title="Beállítások" />
+          <MenuButton title="Matricák" />
         </div>
 
         <div style={{ display: 'flex' }}>
@@ -101,15 +102,15 @@ function App() {
         Üdv, {user.name}
       </div>
 
-      {/* 3. AZ AKTÍV OLDAL TARTALMA (Itt volt a hiányosság!) */}
+      {/* 3. AZ AKTÍV OLDAL TARTALMA */}
       <div style={{ width: '1380px' }}>
         {currentPage === 'Vezérlőpult' && <Dashboard user={user} />}
         {currentPage === 'Járművek' && <VehicleList />}
-        
-        {/* BEKÖTÖTTÜK A SZERVIZNAPTÁRT */}
         {currentPage === 'Szerviznaptár' && <ServiceBoard />}
         
-        {/* BEKÖTÖTTÜK A FELHASZNÁLÓKAT IS ELŐRE */}
+        {/* BEKÖTÖTTÜK A MATRICÁKAT */}
+        {currentPage === 'Matricák' && <StickerSettings />}
+        
         {currentPage === 'Felhasználók' && <UserManagement loggedInUser={user} />}
       </div>
 
