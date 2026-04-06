@@ -1,189 +1,238 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import ProfileModal from '../components/ProfileModal'; // <-- AZ ÚJ PROFIL MODÁL IMPORTJA
+import logoImage from '../assets/FFR_logo.svg'; 
 
 function MyCar({ user, onLogout }) {
-  const [myVehicles, setMyVehicles] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [activeVehicleIndex, setActiveVehicleIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Modál állapotok (Hiba, KM frissítés, Jelszócsere)
+  const [modalType, setModalType] = useState(''); // 'issue', 'km', 'password'
+  const [issueText, setIssueText] = useState('');
+  const [newKm, setNewKm] = useState('');
   
-  // <-- ITT VAN AZ ÚJ ÁLLAPOT A PROFIL ABLAKHOZ -->
-  const [showProfile, setShowProfile] = useState(false);
-  
-  // A HTML5 Dialog a hibabejelentéshez
-  const reportDialogRef = useRef(null);
-  const [selectedVehicleId, setSelectedVehicleId] = useState(null);
-  const [reportData, setReportData] = useState({ description: '' });
+  // Jelszó állapotok
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const fetchMyVehicles = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/vehicles-full');
-      // Csak azokat az autókat tartjuk meg, amik a bejelentkezett felhasználóhoz tartoznak
-      const filtered = res.data.filter(v => v.user_id === user.id);
-      setMyVehicles(filtered);
-      setLoading(false);
-    } catch (err) { 
-      console.error("Hiba a járművek lekérésekor:", err);
+      const res = await axios.get(`http://localhost:5000/api/my-vehicles/${user.id}`);
+      setVehicles(res.data);
+    } catch (err) {
+      console.error("Hiba", err);
+    } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => { fetchMyVehicles(); }, []);
 
-  // --- HIBABEJELENTÉS MODÁL VEZÉRLÉSE ---
-  const openReportModal = (vehicleId) => {
-    setSelectedVehicleId(vehicleId);
-    setReportData({ description: '' });
-    reportDialogRef.current?.showModal();
-  };
-  const closeReportModal = () => reportDialogRef.current?.close();
+  const activeVehicle = vehicles[activeVehicleIndex];
 
-  const handleReportSubmit = async (e) => {
+  // --- MENTÉSEK (Hiba / KM) ---
+  const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:5000/api/service-logs', { 
-        vehicle_id: selectedVehicleId, 
-        description: reportData.description 
-      });
-      closeReportModal();
-      fetchMyVehicles(); // Újratöltjük, hogy látszódjon, ha a státusz "Szervizben"-re váltott
-      alert("Hiba bejelentve! A diszpécser hamarosan felveszi veled a kapcsolatot.");
-    } catch (err) { 
-      alert("Hiba történt a bejelentéskor."); 
+      if (modalType === 'issue') {
+        await axios.post('http://localhost:5000/api/service-logs', { vehicle_id: activeVehicle.id, description: issueText });
+        alert('Hiba bejelentve! Kérlek, egyeztess a diszpécserrel.');
+      } else if (modalType === 'km') {
+        await axios.post('http://localhost:5000/api/update-km', { vehicle_id: activeVehicle.id, new_km: newKm });
+        alert('Kilométeróra frissítve!');
+      }
+      setModalType('');
+      setIssueText('');
+      setNewKm('');
+      fetchMyVehicles(); 
+    } catch (err) {
+      alert('Szerverhiba történt mentés közben.');
     }
   };
 
+  // --- JELSZÓCSERE MENTÉSE ---
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      return alert('A két jelszó nem egyezik!');
+    }
+    if (newPassword.length < 4) {
+      return alert('A jelszónak legalább 4 karakter hosszú kell legyen!');
+    }
+    
+    try {
+      await axios.patch(`http://localhost:5000/api/users/${user.id}/password`, { password: newPassword });
+      alert('A jelszavad sikeresen frissült!');
+      setModalType('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      alert('Hiba történt a jelszó módosításakor.');
+    }
+  };
+
+  // Nincs hozzárendelt autó kezelése
+  if (!loading && vehicles.length === 0) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#F4F8FA', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <h2 style={{ fontFamily: '"Space Grotesk"', color: '#172936' }}>Nincs hozzád rendelt gépjármű.</h2>
+        <button onClick={onLogout} style={{ padding: '15px 30px', background: '#2D4353', color: '#FFF', borderRadius: '15px', border: 'none', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}>Kijelentkezés</button>
+      </div>
+    );
+  }
+
+  if (loading) return <div style={{ fontFamily: '"Space Grotesk"', textAlign: 'center', marginTop: '50px' }}>Betöltés...</div>;
+
   return (
-    <div className="min-h-screen bg-[#f8fafc] font-sans pb-20">
+    <div style={{ minHeight: '100vh', background: '#F4F8FA', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       
-      {/* --- FEJLÉC: MOST MÁR KATTINTHATÓ A PROFIL RÉSZ! --- */}
-      <nav className="bg-slate-800 text-white px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-md">
-        <div 
-          onClick={() => setShowProfile(true)} 
-          className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity bg-slate-700/50 px-3 py-2 rounded-xl"
-          title="Kattints a profilod szerkesztéséhez"
-        >
-          <div className="w-10 h-10 rounded-full bg-slate-600 flex items-center justify-center font-black text-slate-200 text-sm">
-            {user?.name?.charAt(0)?.toUpperCase()}
+      {/* MOBILBARÁT KONTÉNER (Max 600px) */}
+      <div style={{ width: '100%', maxWidth: '600px', display: 'flex', flexDirection: 'column', padding: '20px', boxSizing: 'border-box' }}>
+        
+        {/* MOBIL FEJLÉC ÉS JELSZÓ GOMB */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <div style={{ width: '50px', height: '50px', background: `url(${logoImage}) lightgray 50% / cover no-repeat` }}></div>
+            <div style={{ fontFamily: '"Space Grotesk"', color: '#172936', fontSize: '18px', fontWeight: 'bold' }}>Szia, {user.name}!</div>
           </div>
-          <div>
-            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Profilom (Szerkesztés)</p>
-            <p className="text-sm font-bold leading-tight">{user?.name}</p>
+          
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button onClick={() => setModalType('password')} style={{ background: 'transparent', border: '2px solid #1F5C88', borderRadius: '10px', padding: '10px', color: '#1F5C88', cursor: 'pointer' }} title="Jelszó módosítása">
+              ⚙️
+            </button>
+            <button onClick={onLogout} style={{ background: 'transparent', border: '2px solid #2D4353', borderRadius: '10px', padding: '10px 15px', color: '#2D4353', fontFamily: '"Space Grotesk"', fontWeight: 'bold', cursor: 'pointer' }}>
+              KILÉPÉS
+            </button>
           </div>
         </div>
-        <button onClick={onLogout} className="text-[10px] font-black text-slate-400 hover:text-red-400 uppercase tracking-widest transition-colors bg-slate-700 px-4 py-2 rounded-lg">
-          Kijelentkezés
-        </button>
-      </nav>
 
-      <main className="max-w-3xl mx-auto p-6 mt-4">
-        <h1 className="text-2xl font-black text-slate-800 mb-6">Saját Járműveim</h1>
-
-        {loading ? (
-          <p className="text-center text-slate-400 font-bold mt-10 animate-pulse">Adatok betöltése...</p>
-        ) : myVehicles.length === 0 ? (
-          <div className="bg-white rounded-3xl p-10 text-center shadow-sm border border-slate-100 mt-10">
-            <span className="text-6xl mb-4 block opacity-50">🚶‍♂️</span>
-            <h2 className="text-xl font-black text-slate-700 mb-2">Nincs hozzád rendelve jármű</h2>
-            <p className="text-sm text-slate-500 font-medium">Kérlek, vedd fel a kapcsolatot a diszpécserrel, hogy kiutaljon neked egy autót!</p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {myVehicles.map(v => (
-              <div key={v.id} className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-6 text-white flex justify-between items-center">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-200 mb-1">{v.brand} {v.model}</p>
-                    <h2 className="text-4xl font-black italic tracking-tighter">{v.license_plate}</h2>
-                  </div>
-                  <div className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest ${v.status === 'Aktív' ? 'bg-green-500/20 text-green-100 border border-green-500/30' : v.status === 'Szervizben' ? 'bg-red-500/20 text-red-100 border border-red-500/30' : 'bg-orange-500/20 text-orange-100 border border-orange-500/30'}`}>
-                    {v.status}
-                  </div>
-                </div>
-                
-                <div className="p-6">
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Műszaki vizsga</p>
-                      <p className={`font-bold ${new Date(v.technical_exam_until) < new Date() ? 'text-red-600' : 'text-slate-800'}`}>
-                        {v.technical_exam_until ? new Date(v.technical_exam_until).toLocaleDateString('hu-HU') : 'Nincs adat'}
-                      </p>
-                    </div>
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Jelenlegi Km</p>
-                      <p className="font-bold text-slate-800">{v.current_km ? `${v.current_km} km` : 'Nincs adat'}</p>
-                    </div>
-                  </div>
-
-                  <div className="mb-6">
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase mb-3 border-b border-slate-100 pb-2">Aktív Matricák</h3>
-                    {v.stickers && v.stickers.length > 0 ? (
-                      <div className="space-y-2">
-                        {v.stickers.map(sticker => {
-                          const isExpired = new Date(sticker.valid_until) < new Date();
-                          return (
-                            <div key={sticker.id} className={`p-3 rounded-xl border flex justify-between items-center ${isExpired ? 'bg-red-50 border-red-100 text-red-600' : 'bg-blue-50 border-blue-100 text-blue-800'}`}>
-                              <span className="font-bold text-sm">{sticker.type_name}</span>
-                              <span className="text-xs font-bold bg-white/50 px-2 py-1 rounded">Érv.: {new Date(sticker.valid_until).toLocaleDateString('hu-HU')}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : <p className="text-sm text-slate-400 italic">Nincs érvényes matrica az autón.</p>}
-                  </div>
-
-                  {v.status !== 'Szervizben' && (
-                    <button onClick={() => openReportModal(v.id)} className="w-full bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-black py-4 rounded-xl flex items-center justify-center gap-2 transition-colors">
-                      <span className="text-lg">🛠️</span> HIBABEJELETÉS / SZERVIZIGÉNY
-                    </button>
-                  )}
-                  {v.status === 'Szervizben' && (
-                    <div className="w-full bg-orange-50 text-orange-600 border border-orange-200 font-black py-4 rounded-xl flex items-center justify-center text-sm text-center px-4">
-                      ⏳ Az autó jelenleg szervizben van. Nem tudsz új hibát bejelenteni.
-                    </div>
-                  )}
-                </div>
-              </div>
+        {/* HA TÖBB AUTÓJA VAN: LAPOZÓ */}
+        {vehicles.length > 1 && (
+          <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '10px', marginBottom: '20px' }}>
+            {vehicles.map((v, index) => (
+              <button 
+                key={v.id} 
+                onClick={() => setActiveVehicleIndex(index)}
+                style={{ flexShrink: 0, padding: '10px 20px', borderRadius: '15px', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: 'bold', border: 'none', background: index === activeVehicleIndex ? '#1F5C88' : '#e5e7eb', color: index === activeVehicleIndex ? '#FFF' : '#374151', cursor: 'pointer' }}
+              >
+                {v.license_plate}
+              </button>
             ))}
           </div>
         )}
-      </main>
 
-      {/* NATÍV HTML5 DIALOG HIBABEJELENTÉSHEZ */}
-      <dialog 
-        ref={reportDialogRef} 
-        onCancel={closeReportModal} 
-        className="bg-transparent p-0 w-full max-w-md backdrop:bg-slate-900/80 backdrop:backdrop-blur-sm rounded-[2rem] shadow-2xl open:flex flex-col mx-auto"
-      >
-        <div className="bg-white w-full h-full flex flex-col">
-          <div className="bg-red-50 p-6 border-b border-red-100 flex justify-between items-center">
-            <h2 className="text-xl font-black text-red-700">Hiba bejelentése</h2>
-            <button type="button" onClick={closeReportModal} className="text-red-400 font-bold text-xl hover:text-red-600">✕</button>
-          </div>
-          <form onSubmit={handleReportSubmit} className="p-6 space-y-4">
+        {/* FŐ KÁRTYA (AKTÍV AUTÓ) */}
+        <div style={{ background: '#2D4353', borderRadius: '25px', padding: '30px', color: '#FFF', display: 'flex', flexDirection: 'column', gap: '20px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Probléma részletes leírása</label>
-              <textarea 
-                required 
-                value={reportData.description} 
-                onChange={e => setReportData({description: e.target.value})} 
-                rows="5" 
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium resize-none outline-none focus:border-red-400 focus:bg-white transition-colors" 
-                placeholder="Pl.: Világít a check engine lámpa, vagy defektet kaptam a jobb első keréken..."
-              ></textarea>
+              <div style={{ fontFamily: '"Space Grotesk"', fontSize: '42px', fontWeight: '700', letterSpacing: '2px' }}>{activeVehicle.license_plate}</div>
+              <div style={{ fontFamily: '"Space Grotesk"', fontSize: '20px', opacity: 0.8 }}>{activeVehicle.brand} {activeVehicle.model}</div>
             </div>
-            <button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-xl mt-2 shadow-lg transition-colors">
-              BEJELENTÉS KÜLDÉSE
-            </button>
-          </form>
-        </div>
-      </dialog>
+            <div style={{ padding: '8px 15px', borderRadius: '20px', background: activeVehicle.status === 'Aktív' ? 'rgba(74, 222, 128, 0.2)' : 'rgba(251, 146, 60, 0.2)', color: activeVehicle.status === 'Aktív' ? '#4ade80' : '#fb923c', fontFamily: '"Space Grotesk"', fontWeight: 'bold' }}>
+              {activeVehicle.status}
+            </div>
+          </div>
 
-      {/* --- ITT A LÉNYEG: A BEILLESZTETT PROFIL MODÁL --- */}
-      <ProfileModal 
-        user={user} 
-        isOpen={showProfile} 
-        onClose={() => setShowProfile(false)} 
-      />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', background: 'rgba(255,255,255,0.1)', padding: '20px', borderRadius: '20px' }}>
+            <div>
+              <div style={{ fontSize: '14px', opacity: 0.6, fontFamily: '"Space Grotesk"' }}>Aktuális KM</div>
+              <div style={{ fontSize: '24px', fontWeight: 'bold', fontFamily: '"Space Grotesk"' }}>{activeVehicle.current_km.toLocaleString('hu-HU')}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '14px', opacity: 0.6, fontFamily: '"Space Grotesk"' }}>Üzemanyag</div>
+              <div style={{ fontSize: '24px', fontWeight: 'bold', fontFamily: '"Space Grotesk"' }}>{activeVehicle.fuel_type}</div>
+            </div>
+          </div>
+
+          {/* AKCIÓ GOMBOK (MOBILON NAGYOK) */}
+          <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
+            <button onClick={() => setModalType('km')} style={{ flex: 1, padding: '20px 0', borderRadius: '15px', border: 'none', background: '#F4F8FA', color: '#1F5C88', fontFamily: '"Space Grotesk"', fontSize: '18px', fontWeight: 'bold', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
+              <span style={{ fontSize: '24px' }}>⏱️</span> KM FRISSÍTÉS
+            </button>
+            <button onClick={() => setModalType('issue')} style={{ flex: 1, padding: '20px 0', borderRadius: '15px', border: 'none', background: '#ef4444', color: '#FFF', fontFamily: '"Space Grotesk"', fontSize: '18px', fontWeight: 'bold', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
+              <span style={{ fontSize: '24px' }}>⚠️</span> HIBA/ESEMÉNY
+            </button>
+          </div>
+        </div>
+
+        {/* MATRICÁK LISTÁJA */}
+        <h3 style={{ fontFamily: '"Space Grotesk"', color: '#172936', marginTop: '30px', marginBottom: '15px' }}>Érvényes Matricák</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {activeVehicle.stickers.filter(s => s && s.id).length === 0 ? (
+            <div style={{ color: '#888', fontFamily: '"Space Grotesk"' }}>Nincs érvényes matrica rögzítve.</div>
+          ) : (
+            activeVehicle.stickers.filter(s => s && s.id).map(st => (
+              <div key={st.id} style={{ background: '#FFF', padding: '15px 20px', borderRadius: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                <div style={{ fontFamily: '"Space Grotesk"', fontWeight: 'bold', color: '#1F5C88', fontSize: '18px' }}>{st.type_name}</div>
+                <div style={{ fontFamily: '"Space Grotesk"', color: '#888' }}>Érvényes: {new Date(st.valid_until).toLocaleDateString('hu-HU')}</div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* SZERVIZTÖRTÉNET (LOGOK) */}
+        <h3 style={{ fontFamily: '"Space Grotesk"', color: '#172936', marginTop: '30px', marginBottom: '15px' }}>Utolsó Események</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {activeVehicle.service_history && activeVehicle.service_history.filter(h => h && h.id).length > 0 ? (
+            activeVehicle.service_history
+              .filter(h => h && h.id)
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+              .slice(0, 5)
+              .map(hist => (
+              <div key={hist.id} style={{ background: '#FFF', padding: '15px 20px', borderRadius: '15px', display: 'flex', flexDirection: 'column', gap: '5px', borderLeft: hist.status === 'Függőben' ? '5px solid #ef4444' : '5px solid #10b981', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ fontFamily: '"Space Grotesk"', fontWeight: 'bold', color: '#172936' }}>{hist.status}</div>
+                  <div style={{ fontFamily: '"Space Grotesk"', color: '#888', fontSize: '14px' }}>{new Date(hist.created_at).toLocaleDateString('hu-HU')}</div>
+                </div>
+                <div style={{ fontFamily: '"Space Grotesk"', color: '#555' }}>{hist.description}</div>
+              </div>
+            ))
+          ) : (
+            <div style={{ color: '#888', fontFamily: '"Space Grotesk"' }}>Nincs rögzített esemény.</div>
+          )}
+        </div>
+
+      </div>
+
+      {/* --- MODÁLOK --- */}
+      {modalType && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(23, 41, 54, 0.9)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
+          <div style={{ width: '100%', maxWidth: '500px', background: '#F4F8FA', borderRadius: '25px', padding: '30px', position: 'relative' }}>
+            
+            <button onClick={() => { setModalType(''); setNewPassword(''); setConfirmPassword(''); }} style={{ position: 'absolute', top: '15px', right: '20px', background: 'transparent', border: 'none', fontSize: '30px', color: '#172936', cursor: 'pointer' }}>✕</button>
+            
+            <h2 style={{ fontFamily: '"Space Grotesk"', marginTop: 0 }}>
+              {modalType === 'km' ? 'Kilométeróra frissítése' : modalType === 'issue' ? 'Hiba / Esemény jelentése' : 'Jelszó módosítása'}
+            </h2>
+            
+            <form onSubmit={modalType === 'password' ? handlePasswordChange : handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '20px' }}>
+              
+              {/* KM MODÁL */}
+              {modalType === 'km' && (
+                <input type="number" min={activeVehicle.current_km} placeholder="Új óraállás..." value={newKm} onChange={(e) => setNewKm(e.target.value)} style={{ height: '60px', borderRadius: '15px', border: '2px solid #1F5C88', padding: '0 20px', fontSize: '24px', fontFamily: '"Space Grotesk"' }} required />
+              )}
+
+              {/* HIBA MODÁL */}
+              {modalType === 'issue' && (
+                <textarea rows="4" placeholder="Mi történt az autóval?" value={issueText} onChange={(e) => setIssueText(e.target.value)} style={{ borderRadius: '15px', border: '2px solid #ef4444', padding: '20px', fontSize: '18px', fontFamily: '"Space Grotesk"' }} required />
+              )}
+
+              {/* JELSZÓ MODÁL */}
+              {modalType === 'password' && (
+                <>
+                  <input type="password" placeholder="Új jelszó" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} style={{ height: '50px', borderRadius: '15px', border: '1px solid #172936', padding: '0 20px', fontSize: '18px', fontFamily: '"Space Grotesk"' }} required />
+                  <input type="password" placeholder="Új jelszó megerősítése" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} style={{ height: '50px', borderRadius: '15px', border: '1px solid #172936', padding: '0 20px', fontSize: '18px', fontFamily: '"Space Grotesk"' }} required />
+                </>
+              )}
+
+              <button type="submit" style={{ height: '60px', background: modalType === 'km' || modalType === 'password' ? '#1F5C88' : '#ef4444', color: '#FFF', borderRadius: '15px', border: 'none', fontSize: '20px', fontWeight: 'bold', fontFamily: '"Space Grotesk"', cursor: 'pointer' }}>
+                {modalType === 'password' ? 'MENTÉS' : 'KÜLDÉS'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

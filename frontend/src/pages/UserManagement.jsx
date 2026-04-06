@@ -1,161 +1,251 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
-function UserManagement({ onBack }) {
+function UserManagement({ loggedInUser }) {
   const [users, setUsers] = useState([]);
-  const [errorMessage, setErrorMessage] = useState('');
-  
-  // --- ÚJ SZŰRŐ ÁLLAPOTOK ---
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterRole, setFilterRole] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
 
-  const dialogRef = useRef(null);
-  const initialFormData = { id: null, username: '', password: '', name: '', role: 'driver' };
-  const [formData, setFormData] = useState(initialFormData);
-  const [isEditing, setIsEditing] = useState(false);
+  // Modál állapotok
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalType, setModalType] = useState(''); // 'new', 'edit', 'password', 'profile'
+  const [selectedUser, setSelectedUser] = useState(null);
+  
+  // Űrlap
+  const [formData, setFormData] = useState({ username: '', name: '', role: 'driver', password: '' });
+  const [formError, setFormError] = useState('');
 
   const fetchUsers = async () => {
     try {
       const res = await axios.get('http://localhost:5000/api/users');
       setUsers(res.data);
-    } catch (err) { console.error("Hiba a felhasználók lekérésekor:", err); }
+    } catch (err) {
+      console.error("Hiba a felhasználók betöltésekor", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchUsers(); }, []);
 
-  const openModal = (user = null) => {
-    setErrorMessage('');
-    if (user) {
-      setFormData({ id: user.id, username: user.username, password: '', name: user.name, role: user.role });
-      setIsEditing(true);
-    } else {
-      setFormData(initialFormData);
-      setIsEditing(false);
+  const openModal = (type, user = null) => {
+    setModalType(type);
+    setSelectedUser(user);
+    setFormError('');
+
+    if (type === 'new') {
+      setFormData({ username: '', name: '', role: 'driver', password: '' });
+    } else if (type === 'edit' || type === 'profile') {
+      setFormData({ username: user.username, name: user.name, role: user.role, password: '' });
+    } else if (type === 'password') {
+      // Amikor az Edit modálból átkattintunk az Új jelszóra, csak a jelszó mezőt ürítjük
+      setFormData({ ...formData, password: '' });
     }
-    dialogRef.current?.showModal();
+    setIsModalOpen(true);
   };
 
   const closeModal = () => {
-    dialogRef.current?.close();
-    setFormData(initialFormData);
+    setIsModalOpen(false);
+    setSelectedUser(null);
+    setFormError('');
   };
 
-  const handleSubmit = async (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    setErrorMessage('');
-    try {
-      if (isEditing) await axios.put(`http://localhost:5000/api/users/${formData.id}`, formData);
-      else await axios.post('http://localhost:5000/api/users', formData);
-      closeModal();
-      fetchUsers();
-    } catch (err) { setErrorMessage(err.response?.data?.error || "Hiba történt a mentéskor."); }
-  };
+    setFormError('');
 
-  const handleDelete = async (id, name) => {
-    if(window.confirm(`Biztosan törlöd ${name} felhasználót a rendszerből?`)) {
-      try {
-        await axios.delete(`http://localhost:5000/api/users/${id}`);
-        fetchUsers();
-      } catch (err) { alert("Hiba a törléskor"); }
+    try {
+      if (modalType === 'new') {
+        if (!formData.password) return setFormError('Az új felhasználóhoz kötelező jelszót megadni!');
+        await axios.post('http://localhost:5000/api/users', formData);
+      } else if (modalType === 'edit' || modalType === 'profile') {
+        await axios.put(`http://localhost:5000/api/users/${selectedUser.id}`, {
+          username: formData.username,
+          name: formData.name,
+          role: formData.role
+        });
+        if (modalType === 'profile' && (formData.name !== loggedInUser.name || formData.username !== loggedInUser.username)) {
+            alert('A saját adataid frissültek! A teljes érvényesüléshez lépj be újra.');
+        }
+      } else if (modalType === 'password') {
+        if (formData.password.length < 4) return setFormError('A jelszónak legalább 4 karakternek kell lennie!');
+        await axios.patch(`http://localhost:5000/api/users/${selectedUser.id}/password`, { password: formData.password });
+        alert('Jelszó sikeresen módosítva!');
+      }
+      
+      fetchUsers();
+      closeModal();
+    } catch (err) {
+      setFormError(err.response?.data?.error || 'Hiba történt a mentés során!');
     }
   };
 
-  const roleDisplay = {
-    admin: { label: 'Rendszergazda', color: 'bg-purple-100 text-purple-700 border-purple-200' },
-    operator: { label: 'Diszpécser', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-    driver: { label: 'Sofőr', color: 'bg-slate-100 text-slate-700 border-slate-200' }
+  const handleDelete = async (id) => {
+    if (id === loggedInUser?.id) {
+      return alert('Saját magadat nem törölheted!');
+    }
+    if (window.confirm('Biztosan törlöd ezt a felhasználót? Ha van hozzárendelve jármű, a törlés nem fog sikerülni.')) {
+      try {
+        await axios.delete(`http://localhost:5000/api/users/${id}`);
+        fetchUsers();
+      } catch (err) { alert(err.response?.data?.error || 'Hiba a törléskor!'); }
+    }
   };
 
-  // --- ÚJ SZŰRÉSI LOGIKA ---
+  const getRoleStyle = (role) => {
+    if (role === 'admin') return { label: 'Admin', bg: 'rgba(31, 92, 136, 0.2)', color: '#1F5C88' }; 
+    if (role === 'operator') return { label: 'Diszpécser', bg: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b' }; 
+    if (role === 'driver') return { label: 'Sofőr', bg: 'rgba(74, 222, 128, 0.2)', color: '#16a34a' }; 
+    return { label: role, bg: 'rgba(156, 163, 175, 0.2)', color: '#9ca3af' };
+  };
+
   const filteredUsers = users.filter(u => {
-    const term = searchTerm.toLowerCase();
-    const matchSearch = u.name.toLowerCase().includes(term) || u.username.toLowerCase().includes(term);
-    const matchRole = filterRole === 'all' || u.role === filterRole;
-    return matchSearch && matchRole;
+    if (u.id === loggedInUser?.id) return false; 
+    
+    const matchesSearch = `${u.name} ${u.username}`.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+    return matchesSearch && matchesRole;
   });
 
+  if (loading) return <div style={{ fontFamily: '"Space Grotesk"', fontSize: '24px', textAlign: 'center', marginTop: '50px' }}>Felhasználók betöltése...</div>;
+
   return (
-    <div className="min-h-screen bg-[#f8fafc] relative pb-20">
-      <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
-        <button onClick={onBack} className="text-slate-500 font-bold hover:text-blue-600 transition-colors">← VISSZA</button>
-        <h1 className="text-xl font-black tracking-tight italic text-slate-800">FELHASZNÁLÓ<span className="text-purple-600">KEZELÉS</span></h1>
-        <button onClick={() => openModal()} className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-xl font-black text-xs shadow-lg">
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', paddingBottom: '100px' }}>
+      
+      <div style={{ display: 'flex', width: '1320px', height: '100px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+        <div style={{ color: '#000', fontFamily: '"Space Grotesk"', fontSize: '36px' }}>Munkatársak ({users.length} fő)</div>
+        <button 
+          onClick={() => openModal('new')}
+          style={{ width: '220px', height: '50px', borderRadius: '20px', background: '#2D4353', color: '#F4F8FA', fontFamily: '"Space Grotesk"', fontSize: '20px', fontWeight: '700', border: 'none', cursor: 'pointer' }}
+        >
           + ÚJ MUNKATÁRS
         </button>
-      </nav>
+      </div>
 
-      <main className="max-w-5xl mx-auto p-8">
-        
-        {/* --- ÚJ SZŰRŐSÁV --- */}
-        <div className="mb-8 flex flex-col md:flex-row gap-4">
-          <div className="relative flex-1">
-            <input type="text" placeholder="Keresés név vagy felhasználónév alapján..." className="w-full bg-white border border-slate-200 p-4 pl-12 rounded-2xl outline-none focus:border-purple-400 font-medium shadow-sm" onChange={(e) => setSearchTerm(e.target.value)} />
-            <span className="absolute left-4 top-4 opacity-30 text-xl">🔍</span>
-          </div>
-          <select value={filterRole} onChange={e => setFilterRole(e.target.value)} className="bg-white border border-slate-200 p-4 rounded-2xl font-bold text-slate-600 shadow-sm outline-none focus:border-purple-400 min-w-[200px] cursor-pointer">
-            <option value="all">Minden Jogosultság</option>
-            <option value="admin">Rendszergazda</option>
-            <option value="operator">Diszpécser</option>
-            <option value="driver">Sofőr</option>
-          </select>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredUsers.map(u => (
-            <div key={u.id} className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 relative flex flex-col justify-between hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-4">
-                <div className="w-12 h-12 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center font-black text-slate-400 text-lg">
-                  {u.name.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => openModal(u)} className="text-blue-400 hover:text-blue-600 font-bold">✏️</button>
-                  <button onClick={() => handleDelete(u.id, u.name)} className="text-red-400 hover:text-red-600 font-bold">🗑️</button>
-                </div>
-              </div>
-              <div className="mb-6">
-                <h3 className="text-xl font-black text-slate-800 tracking-tight">{u.name}</h3>
-                <div className="text-xs font-bold text-slate-500 mt-2 space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <p>Felhasználó: <span className="text-slate-800">{u.username}</span></p>
-                  <p>Jelszó: <span className="text-slate-400 tracking-widest">••••••••</span></p>
-                </div>
-              </div>
-              <div className="flex">
-                <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black border uppercase tracking-widest ${roleDisplay[u.role]?.color || 'bg-slate-100'}`}>
-                  {roleDisplay[u.role]?.label || u.role}
-                </span>
+      {loggedInUser && (
+        <div style={{ width: '1320px', background: '#1F5C88', borderRadius: '20px', padding: '30px 40px', boxSizing: 'border-box', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+          <div>
+            <div style={{ color: 'rgba(255,255,255,0.7)', fontFamily: '"Space Grotesk"', fontSize: '18px', marginBottom: '5px' }}>Saját Profil (Bejelentkezve)</div>
+            <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+              <div style={{ color: '#FFF', fontFamily: '"Space Grotesk"', fontSize: '32px', fontWeight: '700' }}>{loggedInUser.name}</div>
+              <div style={{ padding: '5px 15px', borderRadius: '15px', background: 'rgba(255,255,255,0.2)', color: '#FFF', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: '700' }}>
+                Admin
               </div>
             </div>
-          ))}
-          {filteredUsers.length === 0 && (
-             <div className="col-span-full p-10 text-center text-slate-400 font-bold bg-white rounded-3xl border border-slate-100">Nincs a keresésnek megfelelő munkatárs.</div>
-          )}
-        </div>
-      </main>
-
-      {/* DIALOG (Változatlan) */}
-      <dialog ref={dialogRef} onCancel={closeModal} className="bg-transparent p-0 w-full max-w-md backdrop:bg-slate-900/60 backdrop:backdrop-blur-sm rounded-[2rem] shadow-2xl open:flex flex-col">
-        <div className="bg-white w-full h-full flex flex-col">
-          <div className="bg-slate-50 p-6 border-b border-slate-100 flex justify-between items-center">
-            <h2 className="text-xl font-black text-slate-800">{isEditing ? 'Munkatárs Szerkesztése' : 'Új Munkatárs'}</h2>
-            <button type="button" onClick={closeModal} className="text-slate-400 font-bold text-xl hover:text-red-500">✕</button>
+            <div style={{ color: 'rgba(255,255,255,0.8)', fontFamily: '"Space Grotesk"', fontSize: '18px', marginTop: '5px' }}>Felhasználónév: {loggedInUser.username}</div>
           </div>
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            {errorMessage && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-bold">⚠️ {errorMessage}</div>}
-            <div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Teljes Név *</label><input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" /></div>
-            <div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Felhasználónév *</label><input type="text" required value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" /></div>
-            <div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Jelszó {isEditing && '(Opcionális)'}</label><input type="password" required={!isEditing} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder={isEditing ? "Hagyd üresen, ha nem változik" : ""} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" /></div>
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Jogosultság *</label>
-              <select required value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold">
-                <option value="driver">Sofőr (Csak a saját autóját látja)</option>
-                <option value="operator">Diszpécser (Kezeli a flottát)</option>
-                <option value="admin">Rendszergazda (Teljes hozzáférés)</option>
-              </select>
-            </div>
-            <button type="submit" className="w-full bg-purple-600 hover:bg-purple-700 text-white font-black py-4 rounded-xl mt-4 shadow-lg">{isEditing ? 'MÓDOSÍTÁSOK MENTÉSE' : 'MUNKATÁRS LÉTREHOZÁSA'}</button>
-          </form>
+          <div style={{ display: 'flex', gap: '15px' }}>
+            <button onClick={() => openModal('password', loggedInUser)} style={{ width: '160px', height: '45px', borderRadius: '20px', background: 'transparent', border: '2px solid #FFF', color: '#FFF', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: '700', cursor: 'pointer' }}>ÚJ JELSZÓ</button>
+            <button onClick={() => openModal('profile', loggedInUser)} style={{ width: '160px', height: '45px', borderRadius: '20px', background: '#FFF', border: 'none', color: '#1F5C88', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: '700', cursor: 'pointer' }}>SZERKESZTÉS</button>
+          </div>
         </div>
-      </dialog>
+      )}
+
+      <div style={{ display: 'flex', width: '1320px', gap: '20px', alignItems: 'center', marginBottom: '30px', background: '#2D4353', padding: '15px 30px', borderRadius: '20px', boxSizing: 'border-box' }}>
+        <input 
+          type="text" 
+          placeholder="Keresés név vagy felhasználónév alapján..." 
+          value={searchTerm} 
+          onChange={(e) => setSearchTerm(e.target.value)} 
+          style={{ flex: 1, height: '40px', borderRadius: '10px', border: 'none', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '16px' }} 
+        />
+        <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} style={{ width: '200px', height: '40px', borderRadius: '10px', border: 'none', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '16px' }}>
+          <option value="all">Minden munkatárs</option>
+          <option value="operator">Diszpécserek</option>
+          <option value="driver">Sofőrök</option>
+          <option value="admin">Adminok</option>
+        </select>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '60px', width: '1320px' }}>
+        {filteredUsers.map((u) => {
+          const roleStyle = getRoleStyle(u.role);
+          return (
+            <div key={u.id} style={{ width: '400px', height: '240px', borderRadius: '20px', background: '#2D4353', padding: '30px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ color: '#F4F8FA', fontFamily: '"Space Grotesk"', fontSize: '28px', fontWeight: '700' }}>{u.name}</div>
+                  <div style={{ color: '#F4F8FA', opacity: 0.7, fontFamily: '"Space Grotesk"', fontSize: '18px', marginTop: '5px' }}>@{u.username}</div>
+                </div>
+                <div style={{ padding: '5px 15px', borderRadius: '15px', background: roleStyle.bg, color: roleStyle.color, fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: '700' }}>
+                  {roleStyle.label}
+                </div>
+              </div>
+
+              {/* ÚJ KÁRTYA GOMBOK: TÖRLÉS ÉS SZERKESZTÉS */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
+                <button onClick={() => handleDelete(u.id)} style={{ width: '160px', height: '40px', borderRadius: '20px', background: 'transparent', border: '2px solid #ef4444', color: '#ef4444', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: '700', cursor: 'pointer' }}>TÖRLÉS</button>
+                <button onClick={() => openModal('edit', u)} style={{ width: '160px', height: '40px', borderRadius: '20px', background: '#F4F8FA', border: 'none', color: '#2D4353', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: '700', cursor: 'pointer' }}>SZERKESZTÉS</button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {isModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(23, 41, 54, 0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div style={{ width: '500px', background: '#F4F8FA', borderRadius: '20px', padding: '40px', boxSizing: 'border-box', position: 'relative' }}>
+            
+            <button onClick={closeModal} style={{ position: 'absolute', top: '15px', right: '25px', background: 'transparent', border: 'none', fontSize: '30px', color: '#172936', cursor: 'pointer', fontFamily: '"Space Grotesk"' }}>✕</button>
+
+            <h2 style={{ fontFamily: '"Space Grotesk"', color: '#172936', fontSize: '28px', marginTop: 0, marginBottom: '20px' }}>
+              {modalType === 'new' ? 'Új munkatárs' : modalType === 'password' ? 'Jelszó módosítása' : 'Adatok szerkesztése'}
+            </h2>
+
+            {formError && <div style={{ background: '#fee2e2', color: '#b91c1c', padding: '15px', borderRadius: '10px', marginBottom: '20px', fontFamily: '"Space Grotesk"', fontWeight: '700' }}>⚠️ {formError}</div>}
+
+            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              {(modalType === 'new' || modalType === 'edit' || modalType === 'profile') && (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <label style={{ fontFamily: '"Space Grotesk"', color: '#172936', fontSize: '16px', marginBottom: '5px' }}>Teljes Név</label>
+                    <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} style={{ height: '50px', borderRadius: '15px', border: '1px solid #172936', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '16px' }} required />
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <label style={{ fontFamily: '"Space Grotesk"', color: '#172936', fontSize: '16px', marginBottom: '5px' }}>Felhasználónév (Belépéshez)</label>
+                    <input type="text" value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value.toLowerCase()})} style={{ height: '50px', borderRadius: '15px', border: '1px solid #172936', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '16px' }} required />
+                  </div>
+
+                  {modalType !== 'profile' && (
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <label style={{ fontFamily: '"Space Grotesk"', color: '#172936', fontSize: '16px', marginBottom: '5px' }}>Szerepkör</label>
+                      <select value={formData.role} onChange={(e) => setFormData({...formData, role: e.target.value})} style={{ height: '50px', borderRadius: '15px', border: '1px solid #172936', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '16px' }} required>
+                        <option value="driver">Sofőr</option>
+                        <option value="operator">Diszpécser</option>
+                        <option value="admin">Adminisztrátor</option>
+                      </select>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {(modalType === 'new' || modalType === 'password') && (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ fontFamily: '"Space Grotesk"', color: '#172936', fontSize: '16px', marginBottom: '5px' }}>
+                    {modalType === 'password' ? 'Új Jelszó' : 'Kezdeti Jelszó'}
+                  </label>
+                  <input type="password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} style={{ height: '50px', borderRadius: '15px', border: '1px solid #172936', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '16px' }} required={modalType === 'new'} />
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
+                {/* ÚJ JELSZÓ GOMB KERÜLT A TÖRLÉS HELYÉRE A MODÁLBA */}
+                {modalType === 'edit' ? (
+                  <button type="button" onClick={() => openModal('password', selectedUser)} style={{ padding: '0 20px', height: '50px', background: 'transparent', color: '#1F5C88', border: '2px solid #1F5C88', borderRadius: '15px', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: '700', cursor: 'pointer' }}>ÚJ JELSZÓ</button>
+                ) : <div></div>}
+                
+                <button type="submit" style={{ padding: '0 40px', height: '50px', background: '#1F5C88', color: '#F4F8FA', border: 'none', borderRadius: '15px', fontFamily: '"Space Grotesk"', fontSize: '18px', fontWeight: '700', cursor: 'pointer' }}>MENTÉS</button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
