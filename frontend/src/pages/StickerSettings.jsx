@@ -5,9 +5,9 @@ function StickerSettings() {
   const [stickerTypes, setStickerTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Szűrők állapotai
+  // Szűrők állapotai (Összhangban a többi oldaladdal)
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [nameFilter, setNameFilter] = useState(''); // ÚJ: Szöveges kereső
+  const [nameFilter, setNameFilter] = useState('');
 
   // Modál állapotok
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -19,8 +19,11 @@ function StickerSettings() {
     try {
       const res = await axios.get('http://localhost:5000/api/sticker-types');
       setStickerTypes(res.data);
-    } catch (err) { console.error("Hiba", err); } 
-    finally { setLoading(false); }
+    } catch (err) { 
+        console.error("Hiba az adatok betöltésekor:", err); 
+    } finally { 
+        setLoading(false); 
+    }
   };
 
   useEffect(() => { fetchStickerTypes(); }, []);
@@ -49,26 +52,25 @@ function StickerSettings() {
       }
       fetchStickerTypes();
       closeModal();
-    } catch (err) { alert('Hiba történt mentéskor!'); }
+    } catch (err) { alert('Hiba történt a mentés során!'); }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Biztosan törlöd ezt a matrica típust? (Ha autókhoz van rendelve, a törlés sikertelen lesz.)')) {
+    if (window.confirm('Biztosan törlöd ezt a matrica típust?')) {
       try {
         await axios.delete(`http://localhost:5000/api/sticker-types/${id}`);
         fetchStickerTypes();
-      } catch (err) { alert(err.response?.data?.error || 'Hiba a törléskor!'); }
+      } catch (err) { alert('Hiba: A matrica típus valószínűleg már használatban van!'); }
     }
   };
 
-  // KOMPLEX SZŰRÉSI LOGIKA: Név + Kategória egyszerre
+  // Komplex szűrés (Név + Kategória)
   const filteredStickers = stickerTypes.filter(s => {
     const matchesCategory = categoryFilter === 'all' || s.price_category === categoryFilter;
     const matchesName = s.name.toLowerCase().includes(nameFilter.toLowerCase());
     return matchesCategory && matchesName;
   });
 
-  // Kategória stílusok a kártyákon belül
   const getCategoryStyle = (cat) => {
     switch(cat) {
       case 'D1M': return { bg: 'rgba(168, 85, 247, 0.1)', color: '#a855f7', border: '#a855f7' };
@@ -92,31 +94,31 @@ function StickerSettings() {
         </button>
       </div>
 
-      {/* KOMPLEX SZŰRŐ SÁV (Megegyezik a ServiceBoard dizájnjával) */}
+      {/* KOMPLEX SZŰRŐ SÁV (Dizájn fixálva) */}
       <div style={{ display: 'flex', width: '1320px', gap: '15px', alignItems: 'center', marginBottom: '40px', background: '#2D4353', padding: '15px 30px', borderRadius: '20px', boxSizing: 'border-box' }}>
         
-        {/* Szöveges kereső */}
         <input 
           type="text" 
-          placeholder="Keresés matrica neve alapján (pl. 'éves', 'Pest')..." 
+          placeholder="Keresés matrica neve alapján..." 
           value={nameFilter} 
           onChange={(e) => setNameFilter(e.target.value)} 
-          style={{ flex: 1, height: '40px', borderRadius: '10px', border: 'none', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '16px' }} 
+          style={{ flex: 1, height: '40px', borderRadius: '10px', border: 'none', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '16px', outline: 'none' }} 
         />
         
-        {/* Kategória választó */}
-        <select 
-          value={categoryFilter} 
-          onChange={(e) => setCategoryFilter(e.target.value)} 
-          style={{ width: '220px', height: '40px', borderRadius: '10px', border: 'none', padding: '0 10px', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: 'bold' }}
-        >
-          <option value="all">Minden kategória</option>
-          <option value="D1M">D1M (Motorkerékpár)</option>
-          <option value="D1">D1 (Személyautó)</option>
-          <option value="D2">D2 (Teher / Kisbusz)</option>
-          <option value="U">U (Utánfutó)</option>
-        </select>
-
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <span style={{ color: '#F4F8FA', fontFamily: '"Space Grotesk"', fontWeight: 'bold' }}>Kategória:</span>
+          <select 
+            value={categoryFilter} 
+            onChange={(e) => setCategoryFilter(e.target.value)} 
+            style={{ width: '220px', height: '40px', borderRadius: '10px', border: 'none', padding: '0 10px', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: 'bold', outline: 'none' }}
+          >
+            <option value="all">Minden kategória</option>
+            <option value="D1M">D1M (Motorkerékpár)</option>
+            <option value="D1">D1 (Személyautó)</option>
+            <option value="D2">D2 (Teher / Kisbusz)</option>
+            <option value="U">U (Utánfutó)</option>
+          </select>
+        </div>
       </div>
 
       {/* KÁRTYA LISTA */}
@@ -129,7 +131,7 @@ function StickerSettings() {
               <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '8px', background: style.border }}></div>
 
               <div style={{ flex: 1, paddingLeft: '15px' }}>
-                <span style={{ color: style.color, fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: '700', padding: '8px 15px', background: style.bg, borderRadius: '12px' }}>
+                <span style={{ color: style.color, fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: '700', padding: '8px 15px', background: style.bg, borderRadius: '12px', border: `1px solid ${style.border}` }}>
                   {s.price_category}
                 </span>
               </div>
@@ -143,10 +145,10 @@ function StickerSettings() {
               </div>
 
               <div style={{ flex: 1, display: 'flex', gap: '15px', justifyContent: 'flex-end' }}>
-                <button onClick={() => openModal('edit', s)} style={{ padding: '0 20px', height: '40px', borderRadius: '12px', background: '#F4F8FA', border: 'none', color: '#1F5C88', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: '700', cursor: 'pointer' }}>
+                <button onClick={() => openModal('edit', s)} style={{ padding: '0 20px', height: '40px', borderRadius: '12px', background: '#F4F8FA', border: '2px solid #1F5C88', color: '#1F5C88', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: '700', cursor: 'pointer' }}>
                   Szerkesztés
                 </button>
-                <button onClick={() => handleDelete(s.id)} style={{ padding: '0 20px', height: '40px', borderRadius: '12px', background: '#fee2e2', border: 'none', color: '#ef4444', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: '700', cursor: 'pointer' }}>
+                <button onClick={() => handleDelete(s.id)} style={{ padding: '0 20px', height: '40px', borderRadius: '12px', background: 'transparent', border: '2px solid #ef4444', color: '#ef4444', fontFamily: '"Space Grotesk"', fontSize: '16px', fontWeight: '700', cursor: 'pointer' }}>
                   Törlés
                 </button>
               </div>
@@ -154,10 +156,9 @@ function StickerSettings() {
           )
         })}
 
-        {/* ÜRES ÁLLAPOT */}
         {filteredStickers.length === 0 && (
           <div style={{ width: '100%', boxSizing: 'border-box', background: '#FFFFFF', border: '2px dashed #2D4353', borderRadius: '20px', padding: '50px', textAlign: 'center', fontFamily: '"Space Grotesk"', fontSize: '20px', color: '#888' }}>
-            Nincs a szűrésnek megfelelő matrica típus.
+            Nincs a keresési feltételeknek megfelelő matrica típus.
           </div>
         )}
       </div>
@@ -165,7 +166,7 @@ function StickerSettings() {
       {/* MODÁL */}
       {isModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(23, 41, 54, 0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div style={{ width: '500px', background: '#F4F8FA', borderRadius: '20px', padding: '40px', boxSizing: 'border-box', position: 'relative' }}>
+          <div style={{ width: '500px', background: '#F4F8FA', borderRadius: '20px', padding: '40px', boxSizing: 'border-box', position: 'relative', border: '2px solid #2D4353' }}>
             <button onClick={closeModal} style={{ position: 'absolute', top: '15px', right: '25px', background: 'transparent', border: 'none', fontSize: '30px', color: '#172936', cursor: 'pointer', fontFamily: '"Space Grotesk"' }}>✕</button>
             <h2 style={{ fontFamily: '"Space Grotesk"', color: '#172936', fontSize: '28px', marginTop: 0, marginBottom: '25px' }}>
               {modalMode === 'new' ? 'Új Matrica Típus' : 'Matrica Szerkesztése'}
@@ -175,7 +176,7 @@ function StickerSettings() {
               
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <label style={{ fontFamily: '"Space Grotesk"', color: '#172936', fontSize: '16px', marginBottom: '8px', fontWeight: 'bold' }}>Járműkategória</label>
-                <select value={formData.price_category} onChange={(e) => setFormData({...formData, price_category: e.target.value})} style={{ height: '50px', borderRadius: '15px', border: '2px solid #1F5C88', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '18px', background: '#fff' }}>
+                <select value={formData.price_category} onChange={(e) => setFormData({...formData, price_category: e.target.value})} style={{ height: '50px', borderRadius: '15px', border: '2px solid #1F5C88', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '18px', background: '#fff', outline: 'none' }}>
                   <option value="D1M">D1M (Motorkerékpár)</option>
                   <option value="D1">D1 (Személyautó)</option>
                   <option value="D2">D2 (Tehergépjármű / Kisbusz)</option>
@@ -185,12 +186,12 @@ function StickerSettings() {
 
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <label style={{ fontFamily: '"Space Grotesk"', color: '#172936', fontSize: '16px', marginBottom: '8px', fontWeight: 'bold' }}>Matrica Neve</label>
-                <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} placeholder="Pl. Éves Országos..." style={{ height: '50px', borderRadius: '15px', border: '2px solid #1F5C88', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '18px', background: '#fff' }} required />
+                <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} placeholder="Pl. Éves Országos..." style={{ height: '50px', borderRadius: '15px', border: '2px solid #1F5C88', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '18px', background: '#fff', outline: 'none' }} required />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <label style={{ fontFamily: '"Space Grotesk"', color: '#172936', fontSize: '16px', marginBottom: '8px', fontWeight: 'bold' }}>Alapár (Bruttó Ft)</label>
-                <input type="number" min="0" value={formData.price} onChange={(e) => setFormData({...formData, price: parseInt(e.target.value) || 0})} style={{ height: '50px', borderRadius: '15px', border: '2px solid #1F5C88', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '20px', background: '#fff', color: '#1F5C88', fontWeight: 'bold' }} required />
+                <input type="number" min="0" value={formData.price} onChange={(e) => setFormData({...formData, price: parseInt(e.target.value) || 0})} style={{ height: '50px', borderRadius: '15px', border: '2px solid #1F5C88', padding: '0 15px', fontFamily: '"Space Grotesk"', fontSize: '20px', background: '#fff', color: '#1F5C88', fontWeight: 'bold', outline: 'none' }} required />
               </div>
 
               <button type="submit" style={{ marginTop: '10px', height: '50px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '15px', fontFamily: '"Space Grotesk"', fontSize: '18px', fontWeight: '700', cursor: 'pointer' }}>
